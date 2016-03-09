@@ -63,7 +63,7 @@ im=image_in
 sz=size(im)
 
 ;Constant with parameters for plotting, make sure the values are the same as in pnr_dt.rpo
-seg_const_def={k_sig:15.0, valid_range:[-20000.,20000.], deg_lim:70.0}
+seg_const_def={k_sig:15.0, valid_range:[-20000.,20000.], deg_lim:85.0}
 
 if not keyword_set(seg_const) then begin
     seg_const=seg_const_def
