@@ -1,84 +1,32 @@
-pro zaw_pol_flux, start_date, end_date, instr, seg_const=seg_const, display=display
-; NAME
-;      zaw_pol_flux
+pro zaw_pol_flux, start_date, end_date, instr
+;+
+; NAME:
+;    ZAW_POL_FLUX
 ;
 ; PURPOSE:
-;       For a given MDI synoptic white light snapshot, determine the amount of facular
-;       pixels
-;       
-; CATEGORY:1
-;       DATA ANALYSIS
+;   Identifies the pixels belonging to the norhtern and southern poles and calculates
+;   data on them.
+;
+; CATEGORY:
+;    DATA ANALYSIS
 ;
 ; CALLING SEQUENCE:
-;       zaw_pol_flux,
+;    zaw_pol_flux, start_date, end_date, instr
 ;
 ; INPUTS:
-;       
+;    start_date                 - starting date to parse from
+;    end_date                   - ending date to stop
+;    instr                      - instrument being analyzed
 ;
-; KEYWORD:
-;      prt: display the intages in the different stages of the process
-;
-; OPTIONAL INPUTS:
-;       seg_const: struct holding control parameters for segmentation
-;            1. ker_th: kernel pixel threshold
-;            2. ar_th: facular region pixel threshold
-;                   used in region growth
-;            3. qr_th: quiet Sun region threshold
-;            4. dila_size: dilation structural size, used to emerge
-;                   the neibouring AR elements into a single AR; default 4 pixels
-;                   used in morphological closing operation
-;            5. eros_size: erosion structural size; default 4 pixels; used to remove
-;                   small AR kernel pixels after the kernel pixel
-;                   segmentation; used in morphological opending operation
-;            6. k_sig (alternate to 1): kernel pixel threshold = k_sig times the background
-;                   standard deviation; default 15
-;            7. ar_grow_sig (alternate to 2): active region pixel
-;                   threshold = ar_grow_sig times background standard deviation; default 5           
-;            8. valid_range: value range of valid magnetogram pixels,
-;                   default=[-20000,20000]; used to deal bad pixels in the iamges
-;   
-; OUTPUTS: 
-; 
-;
-; OPTIONAL OUTPUT:
-;      ptr: print the intermediate information on console
-;      iden_save: "features_ars.processes.sav"
-;           if iden_save is set, save the images at different processing stages 
-;           holding one variable: imgs(7,nx,ny)
-;           imgs(0,nx,ny): original input image
-;           imgs(1,nx,ny): segmentation of only kernel pixels
-;           imgs(2,nx,ny): after removing small and isolated patches
-;           using morphological opening operation
-;           imgs(3,nx,ny): region growth to find all active region
-;           pixels
-;           imgs(4,nx,ny): grouping discrete patches to individual
-;           active region using dilation,
-;           using morphological distance analysis to determine the
-;           number of active regions, and the device pixels in each of
-;           these active regions
-;           imgs(5,nx,ny): showing active region pixels in these
-;           identified active regions.
-;           imgs(6,nx,ny): showing active region plus dilated pixels
-;           after merging active region patches
-;
-; KEYWORDS:
-;            display: display the images in the various processing steps
-;            hc:   make hard copy in PS format
-;            ps_file: ps file name for showing identification processes
-;
-; RESTRICTIONS:
-;
-; PROCEDURE:
-;
-; Pending improvement:
-;   labeling the region number and boundary on the image of segmented
-;   active regions
-; 
+; OUTPUTS:
+;    Writes out a CSV of the struct PF_data containing norther and southern hemisphere data
 ;
 ; MODIFICATION HISTORY:
 ;   2011/09/26: Andres Munoz-Jaramillo:  Adapted from Jie Zhang's AR detection code
 ;   2016/02/06: Zach Werginz: Adapted to work with amj_coord.pro and amj_file_read.pro
-;
+;   2016/03/12: Zach Wergin: Added new fields to PF_data for maximum pixel field and flux
+;-
+
 
 ;Define the usage
 if n_params() lt 2 then begin
@@ -90,8 +38,9 @@ if n_params() lt 2 then begin
     return
 endif
 
+; Runtime parameters
 deg_lim = 65.0
-inv_px_tol = 0.85
+inv_px_tol = .85 
 stat = 1
 
 ;Set instrument parameters
@@ -101,11 +50,15 @@ if instr eq 2 then DayOff = julday(1,1,1970);   KPVT SPMG
 if instr eq 3 then DayOff = julday(1,1,1993);   MDI
 if instr eq 4 then DayOff = julday(1,1,2009);   HMI
 
+;Setting dates
 mdi_i  = julday(strmid(start_date,5,2),strmid(start_date,8,2),strmid(start_date,0,4))-DayOff
 mdi_f  = julday(strmid(end_date,5,2),strmid(end_date,8,2),strmid(end_date,0,4))-DayOff
-PF_data = {pf_day, mdi_i: 0L, date: '', intf_n: !values.f_nan, intfc_n: !values.f_nan, unsf_n: !values.f_nan, sf_n: !values.f_nan, posf_n: !values.f_nan, $
-            negf_n: !values.f_nan, vnpc_pxn: !values.f_nan, visa_n: !values.f_nan, max_n: !values.f_nan, n_swt: !values.f_nan, intf_s: !values.f_nan, intfc_s: !values.f_nan,$
-            unsf_s: !values.f_nan, sf_s: !values.f_nan, posf_s: !values.f_nan, negf_s: !values.f_nan, vnpc_pxs: !values.f_nan, visa_s: !values.f_nan, max_s: !values.f_nan, s_swt: !values.f_nan}
+
+;Data structure for poles
+PF_data = {pf_day, mdi_i: 0L, date: '', intf_n: !values.f_nan, intfc_n: !values.f_nan, unsflux_n: !values.f_nan, sflux_n: !values.f_nan, posflux_n: !values.f_nan, $
+            negflux_n: !values.f_nan, vnpc_pxn: !values.f_nan, visarea_n: !values.f_nan, max_pxflux_n: !values.f_nan, max_pxf_n: !values.f_nan, max_pxfc_n: !values.f_nan, n_swt: !values.f_nan, $
+            intf_s: !values.f_nan, intfc_s: !values.f_nan, unsflux_s: !values.f_nan, sflux_s: !values.f_nan, posflux_s: !values.f_nan, negflux_s: !values.f_nan, $
+            vnpc_pxs: !values.f_nan, visarea_s: !values.f_nan, max_pxflux_s: !values.f_nan, max_pxf_s: !values.f_nan, max_pxfc_s: !values.f_nan, s_swt: !values.f_nan}
 
 REPEAT begin
     
@@ -215,26 +168,29 @@ REPEAT begin
     endif
     if ( n_swt ne 0.0 ) then begin 
 
-        intf_n = !values.f_nan ;Uncorrected Mean polar cap field
-        intfc_n = !values.f_nan ;Corrected Mean polar cap field
-        unsf_n = !values.f_nan ;Total polar unsigned flux
-        sf_n = !values.f_nan ;Total polar signed flux
-        posf_n = !values.f_nan ;Total positive polar flux
-        negf_n = !values.f_nan ;Total negative polar flux
-        vnpc_pxn = !values.f_nan
-        visa_n = !values.f_nan
-        max_n = !values.f_nan ;Maximum pixel flux            
+        intf_n = !values.f_nan      ;Uncorrected Mean polar cap field
+        intfc_n = !values.f_nan     ;Corrected Mean polar cap field
+        unsflux_n = !values.f_nan   ;Total polar unsigned flux
+        sflux_n = !values.f_nan     ;Total polar signed flux
+        posflux_n = !values.f_nan   ;Total positive polar flux
+        negflux_n = !values.f_nan   ;Total negative polar flux
+        vnpc_pxn = !values.f_nan    ;Number of valid pixels inside polar cap
+        visarea_n = !values.f_nan   ;Total visible area
+        max_pxflux_n = !values.f_nan ;Maximum pixel flux
+        max_pxf_n = !values.f_nan   ;Maximum uncorrected pixel field
+        max_pxfc_n = !values.f_nan  ;Maximum corrected pixel field               
     endif else begin   
             
-        intf_n = mean( CRD.im_raw(vpc_pxindn),/double, /nan) ;Uncorrected Mean polar cap field
-        intfc_n = mean( CRD.im_crr(vpc_pxindn),/double, /nan) ;Corrected Mean polar cap field
-        unsf_n = total( abs(CRD.mgnt_flx(vpc_pxindn)),/double, /nan) ;Total polar unsigned flux
-        sf_n = total( CRD.mgnt_flx(vpc_pxindn),/double, /nan) ;Total polar signed flux
-        posf_n = total( CRD.mgnt_flx(pc_posn),/double, /nan) ;Total positive polar flux
-        negf_n = total( CRD.mgnt_flx(pc_negn),/double, /nan) ;Total negative polar flux
-        visa_n = total( CRD.mgnt_ar(vpc_pxindn), /double, /nan) ;Total visible area
-        max_n = max(abs( CRD.mgnt_flx(vpc_pxindn) ), /nan) ;Maximum pixel flux 
-                
+        intf_n = mean( CRD.im_raw(vpc_pxindn),/double, /nan)            ;Uncorrected Mean polar cap field
+        intfc_n = mean( CRD.im_crr(vpc_pxindn),/double, /nan)           ;Corrected Mean polar cap field
+        unsflux_n = total( abs(CRD.mgnt_flx(vpc_pxindn)),/double, /nan) ;Total polar unsigned flux
+        sflux_n = total( CRD.mgnt_flx(vpc_pxindn),/double, /nan)        ;Total polar signed flux
+        posflux_n = total( CRD.mgnt_flx(pc_posn),/double, /nan)         ;Total positive polar flux
+        negflux_n = total( CRD.mgnt_flx(pc_negn),/double, /nan)         ;Total negative polar flux
+        visarea_n = total( CRD.mgnt_ar(vpc_pxindn), /double, /nan)      ;Total visible area
+        max_pxflux_n = max(abs( CRD.mgnt_flx(vpc_pxindn) ), /nan)        ;Maximum pixel flux
+        max_pxf_n = max( CRD.im_raw(vpc_pxindn) ,/nan)                  ;Maximum uncorrected pixel field
+        max_pxfc_n =  max( CRD.im_crr(vpc_pxindn) ,/nan)                ;Maximum corrected pixel field
     endelse
 
 
@@ -257,33 +213,51 @@ REPEAT begin
         
     if ( s_swt ne 0.0 ) then begin 
 
-        intf_s = !values.f_nan ;Uncorrected Mean polar cap field
-        intfc_s = !values.f_nan ;Corrected Mean polar cap field
-        unsf_s = !values.f_nan ;Total polar unsigned flux
-        sf_s = !values.f_nan ;Total polar signed flux
-        posf_s = !values.f_nan ;Total positive polar flux
-        negf_s = !values.f_nan ;Total negative polar flux
-        vnpc_pxs = !values.f_nan
-        visa_s = !values.f_nan
-        max_s = !values.f_nan ;Maximum pixel flux 
+        intf_s = !values.f_nan      ;Uncorrected Mean polar cap field
+        intfc_s = !values.f_nan     ;Corrected Mean polar cap field
+        unsflux_s = !values.f_nan   ;Total polar unsigned flux
+        sflux_s = !values.f_nan     ;Total polar signed flux
+        posflux_s = !values.f_nan   ;Total positive polar flux
+        negflux_s = !values.f_nan   ;Total negative polar flux
+        vnpc_pxs = !values.f_nan    ;Number of valid pixels inside polar cap
+        visarea_s = !values.f_nan   ;Total visible area
+        max_pxflux_s = !values.f_nan ;Maximum pixel flux
+        max_pxf_s = !values.f_nan   ;Maximum uncorrected pixel field
+        max_pxfc_s = !values.f_nan  ;Maximum corrected pixel field 
         
     endif else begin   
             
-        intf_s = mean( CRD.im_raw(vpc_pxinds),/double, /nan) ;Uncorrected Mean polar cap field
-        intfc_s = mean( CRD.im_crr(vpc_pxinds),/double, /nan) ;Corrected Mean polar cap field
-        unsf_s = total( abs(CRD.mgnt_flx(vpc_pxinds)),/double, /nan) ;Total polar unsigned flux
-        sf_s = total( CRD.mgnt_flx(vpc_pxinds),/double, /nan) ;Total polar signed flux
-        posf_s = total( CRD.mgnt_flx(pc_poss),/double, /nan) ;Total positive polar flux
-        negf_s = total( CRD.mgnt_flx(pc_negs),/double, /nan) ;Total negative polar flux
-        visa_s = total( CRD.mgnt_ar(vpc_pxinds), /double, /nan) ;Total visible area
-        max_s = max(abs( CRD.mgnt_flx(vpc_pxinds) ), /nan) ;Maximum pixel flux 
+        intf_s = mean( CRD.im_raw(vpc_pxinds),/double, /nan)            ;Uncorrected Mean polar cap field
+        intfc_s = mean( CRD.im_crr(vpc_pxinds),/double, /nan)           ;Corrected Mean polar cap field
+        unsflux_s = total( abs(CRD.mgnt_flx(vpc_pxinds)),/double, /nan) ;Total polar unsigned flux
+        sflux_s = total( CRD.mgnt_flx(vpc_pxinds),/double, /nan)        ;Total polar signed flux
+        posflux_s = total( CRD.mgnt_flx(pc_poss),/double, /nan)         ;Total positive polar flux
+        negflux_s = total( CRD.mgnt_flx(pc_negs),/double, /nan)         ;Total negative polar flux
+        visarea_s = total( CRD.mgnt_ar(vpc_pxinds), /double, /nan)      ;Total visible area
+        max_pxflux_s = max(abs( CRD.mgnt_flx(vpc_pxinds) ), /nan)        ;Maximum pixel flux
+        max_pxf_s = max( CRD.im_raw(vpc_pxinds) ,/nan)                  ;Maximum uncorrected pixel field
+        max_pxfc_s =  max( CRD.im_crr(vpc_pxinds) ,/nan)                ;Maximum corrected pixel field 
                 
     endelse
-    tmp_PF = {pf_day, mdi_i, date, intf_n, intfc_n, unsf_n, sf_n, posf_n, negf_n, vnpc_pxn, visa_n, max_n, n_swt, intf_s, intfc_s, unsf_s, sf_s, posf_s, negf_s, vnpc_pxs, visa_s, max_s, s_swt}
-    PF_data = [PF_data, tmp_PF]
+    tmp_PF = {pf_day, mdi_i, date, intf_n, intfc_n, unsflux_n, sflux_n, posflux_n, negflux_n, vnpc_pxn, visarea_n, max_pxflux_n, max_pxf_n, max_pxfc_n, n_swt, intf_s, intfc_s, unsflux_s, sflux_s, posflux_s, negflux_s, vnpc_pxs, visarea_s, max_pxflux_s, max_pxf_s, max_pxfc_s, s_swt}
+    ;if (n_elements(PF_data) eq 1) then begin
+    ;    if (PF_data.mdi_i eq 0) then PF_data = tmp_PF ;To eliminate zero row of initilization
+    ;endif else begin 
+        PF_data = [PF_data, tmp_PF] 
+    ;endelse
 ENDREP UNTIL (mdi_i gt mdi_f)
 
+;first = 0
+;last = N_Elements(array)-1
+;CASE index OF
+   ; first: array = array[1:*]
+  ;  last: array = array[first:last-1]
+ ;   ELSE: array = [ array[first:index-1], array[index+1:last] ]
+;ENDCASE
+
 filename = string('PF_data' + start_date + '_' + end_date + '.csv')
-write_csv, filename, PF_data
+head = ['mdi_i','date','intf_n', 'intfc_n', 'unsflux_n', 'sflux_n', 'posflux_n', 'negflux_n', 'vnpc_pxn', 'visarea_n', 'max_pxflux_n', 'max_pxf_n', 'max_pxfc_n', 'n_swt', $
+                       'intf_s', 'intfc_s', 'unsflux_s', 'sflux_s', 'posflux_s', 'negflux_s', 'vnpc_pxs', 'visarea_s', 'max_pxflux_s', 'max_pxf_s', 'max_pxfc_s', 's_swt']
+write_csv, filename, PF_data, HEADER = head
 
 END
