@@ -55,9 +55,9 @@ mdi_i  = julday(strmid(start_date,5,2),strmid(start_date,8,2),strmid(start_date,
 mdi_f  = julday(strmid(end_date,5,2),strmid(end_date,8,2),strmid(end_date,0,4))-DayOff
 
 ;Data structure for poles
-PF_data = {pf_day, mdi_i: 0L, date: '', intf_n: !values.f_nan, intfc_n: !values.f_nan, unsflux_n: !values.f_nan, sflux_n: !values.f_nan, posflux_n: !values.f_nan, $
-            negflux_n: !values.f_nan, vnpc_pxn: !values.f_nan, visarea_n: !values.f_nan, max_pxflux_n: !values.f_nan, max_pxf_n: !values.f_nan, max_pxfc_n: !values.f_nan, n_swt: !values.f_nan, $
-            intf_s: !values.f_nan, intfc_s: !values.f_nan, unsflux_s: !values.f_nan, sflux_s: !values.f_nan, posflux_s: !values.f_nan, negflux_s: !values.f_nan, $
+PF_data = {pf_day, mdi_i: 0L, date: '', intf_n: !values.f_nan, intfc_n: !values.f_nan, unsflux_n: !values.f_nan, unsfluxc_n: !values.f_nan, sflux_n: !values.f_nan, sfluxc_n: !values.f_nan, posfluxc_n: !values.f_nan, $
+            negfluxc_n: !values.f_nan, vnpc_pxn: !values.f_nan, visarea_n: !values.f_nan, max_pxflux_n: !values.f_nan, max_pxf_n: !values.f_nan, max_pxfc_n: !values.f_nan, n_swt: !values.f_nan, $
+            intf_s: !values.f_nan, intfc_s: !values.f_nan, unsflux_s: !values.f_nan, unsfluxc_s: !values.f_nan, sflux_s: !values.f_nan, sfluxc_s: !values.f_nan, posfluxc_s: !values.f_nan, negfluxc_s: !values.f_nan, $
             vnpc_pxs: !values.f_nan, visarea_s: !values.f_nan, max_pxflux_s: !values.f_nan, max_pxf_s: !values.f_nan, max_pxfc_s: !values.f_nan, s_swt: !values.f_nan}
 
 REPEAT begin
@@ -65,7 +65,7 @@ REPEAT begin
     ;Reading files 
     repeat begin
             caldat, mdi_i + DayOff, Month, Day, Year
-            date = strtrim(string(Year),2)+'-'+strtrim(string(Month,format='(I02)'),2)+'-'+strtrim(string(Day,format='(I02)'),2)
+            date = strtrim(string(Year), 2)+'-'+strtrim(string(Month,format='(I02)'), 2)+'-'+strtrim(string(Day,format='(I02)'), 2)
             print, date
             mg = amj_file_read( date, hdr, instr )
         
@@ -168,29 +168,33 @@ REPEAT begin
     endif
     if ( n_swt ne 0.0 ) then begin 
 
-        intf_n = !values.f_nan      ;Uncorrected Mean polar cap field
-        intfc_n = !values.f_nan     ;Corrected Mean polar cap field
-        unsflux_n = !values.f_nan   ;Total polar unsigned flux
-        sflux_n = !values.f_nan     ;Total polar signed flux
-        posflux_n = !values.f_nan   ;Total positive polar flux
-        negflux_n = !values.f_nan   ;Total negative polar flux
-        vnpc_pxn = !values.f_nan    ;Number of valid pixels inside polar cap
-        visarea_n = !values.f_nan   ;Total visible area
-        max_pxflux_n = !values.f_nan ;Maximum pixel flux
-        max_pxf_n = !values.f_nan   ;Maximum uncorrected pixel field
-        max_pxfc_n = !values.f_nan  ;Maximum corrected pixel field               
+        intf_n = !values.f_nan 
+        intfc_n = !values.f_nan
+        unsflux_n = !values.f_nan 
+        unsfluxc_n = !values.f_nan
+        sflux_n = !values.f_nan 
+        sfluxc_n = !values.f_nan
+        posfluxc_n = !values.f_nan 
+        negfluxc_n = !values.f_nan
+        vnpc_pxn = !values.f_nan 
+        visarea_n = !values.f_nan
+        max_pxflux_n = !values.f_nan
+        max_pxf_n = !values.f_nan
+        max_pxfc_n = !values.f_nan                 
     endif else begin   
             
-        intf_n = mean( CRD.im_raw(vpc_pxindn),/double, /nan)            ;Uncorrected Mean polar cap field
-        intfc_n = mean( CRD.im_crr(vpc_pxindn),/double, /nan)           ;Corrected Mean polar cap field
-        unsflux_n = total( abs(CRD.mgnt_flx(vpc_pxindn)),/double, /nan) ;Total polar unsigned flux
-        sflux_n = total( CRD.mgnt_flx(vpc_pxindn),/double, /nan)        ;Total polar signed flux
-        posflux_n = total( CRD.mgnt_flx(pc_posn),/double, /nan)         ;Total positive polar flux
-        negflux_n = total( CRD.mgnt_flx(pc_negn),/double, /nan)         ;Total negative polar flux
-        visarea_n = total( CRD.mgnt_ar(vpc_pxindn), /double, /nan)      ;Total visible area
-        max_pxflux_n = max(abs( CRD.mgnt_flx(vpc_pxindn) ), /nan)        ;Maximum pixel flux
-        max_pxf_n = max( CRD.im_raw(vpc_pxindn) ,/nan)                  ;Maximum uncorrected pixel field
-        max_pxfc_n =  max( CRD.im_crr(vpc_pxindn) ,/nan)                ;Maximum corrected pixel field
+        intf_n = mean( CRD.im_raw(vpc_pxindn),/double, /nan)                    ;Uncorrected Mean polar cap field
+        intfc_n = mean( CRD.im_crr(vpc_pxindn),/double, /nan)                   ;Corrected Mean polar cap field
+        unsflux_n = total( abs(CRD.mgnt_flux_raw(vpc_pxindn)),/double, /nan)    ;Total polar unsigned flux - uncorrected
+        unsfluxc_n = total( abs(CRD.mgnt_flux_corr(vpc_pxindn)), /double, /nan) ;Total polar unsigned flux - corrected
+        sflux_n = total( CRD.mgnt_flux_raw(vpc_pxindn), /double, /nan)          ;Total polar signed flux   - uncorrected
+        sfluxc_n = total( CRD.mgnt_flux_corr(vpc_pxindn), /double, /nan)        ;Total polar signed flux   - corrected
+        posfluxc_n = total( CRD.mgnt_flux_corr(pc_posn),/double, /nan)           ;Total positive polar flux - corrected
+        negfluxc_n = total( CRD.mgnt_flux_corr(pc_negn),/double, /nan)           ;Total negative polar flux - corrected
+        visarea_n = total( CRD.mgnt_ar(vpc_pxindn), /double, /nan)              ;Total visible area
+        max_pxflux_n = max(abs( CRD.mgnt_flux_corr(vpc_pxindn) ), /nan)         ;Maximum pixel flux - corrected
+        max_pxf_n = max( CRD.im_raw(vpc_pxindn) ,/nan)                          ;Maximum uncorrected pixel field
+        max_pxfc_n =  max( CRD.im_crr(vpc_pxindn) ,/nan)                        ;Maximum corrected pixel field
     endelse
 
 
@@ -213,38 +217,44 @@ REPEAT begin
         
     if ( s_swt ne 0.0 ) then begin 
 
-        intf_s = !values.f_nan      ;Uncorrected Mean polar cap field
-        intfc_s = !values.f_nan     ;Corrected Mean polar cap field
-        unsflux_s = !values.f_nan   ;Total polar unsigned flux
-        sflux_s = !values.f_nan     ;Total polar signed flux
-        posflux_s = !values.f_nan   ;Total positive polar flux
-        negflux_s = !values.f_nan   ;Total negative polar flux
-        vnpc_pxs = !values.f_nan    ;Number of valid pixels inside polar cap
-        visarea_s = !values.f_nan   ;Total visible area
-        max_pxflux_s = !values.f_nan ;Maximum pixel flux
-        max_pxf_s = !values.f_nan   ;Maximum uncorrected pixel field
-        max_pxfc_s = !values.f_nan  ;Maximum corrected pixel field 
+        intf_s = !values.f_nan
+        intfc_s = !values.f_nan
+        unsflux_s = !values.f_nan
+        unsfluxc_s = !values.f_nan
+        sflux_s = !values.f_nan
+        sfluxc_s = !values.f_nan
+        posfluxc_s = !values.f_nan
+        negfluxc_s = !values.f_nan
+        vnpc_pxs = !values.f_nan
+        visarea_s = !values.f_nan
+        max_pxflux_s = !values.f_nan
+        max_pxf_s = !values.f_nan  
+        max_pxfc_s = !values.f_nan 
         
     endif else begin   
             
-        intf_s = mean( CRD.im_raw(vpc_pxinds),/double, /nan)            ;Uncorrected Mean polar cap field
-        intfc_s = mean( CRD.im_crr(vpc_pxinds),/double, /nan)           ;Corrected Mean polar cap field
-        unsflux_s = total( abs(CRD.mgnt_flx(vpc_pxinds)),/double, /nan) ;Total polar unsigned flux
-        sflux_s = total( CRD.mgnt_flx(vpc_pxinds),/double, /nan)        ;Total polar signed flux
-        posflux_s = total( CRD.mgnt_flx(pc_poss),/double, /nan)         ;Total positive polar flux
-        negflux_s = total( CRD.mgnt_flx(pc_negs),/double, /nan)         ;Total negative polar flux
-        visarea_s = total( CRD.mgnt_ar(vpc_pxinds), /double, /nan)      ;Total visible area
-        max_pxflux_s = max(abs( CRD.mgnt_flx(vpc_pxinds) ), /nan)        ;Maximum pixel flux
-        max_pxf_s = max( CRD.im_raw(vpc_pxinds) ,/nan)                  ;Maximum uncorrected pixel field
-        max_pxfc_s =  max( CRD.im_crr(vpc_pxinds) ,/nan)                ;Maximum corrected pixel field 
+        intf_s = mean( CRD.im_raw(vpc_pxinds),/double, /nan)                    ;Uncorrected Mean polar cap field
+        intfc_s = mean( CRD.im_crr(vpc_pxinds),/double, /nan)                   ;Corrected Mean polar cap field
+        unsflux_s = total( abs(CRD.mgnt_flux_raw(vpc_pxinds)),/double, /nan)    ;Total polar unsigned flux - uncorrected
+        unsfluxc_s = total( abs(CRD.mgnt_flux_corr(vpc_pxinds)),/double, /nan)  ;Total polar unsigned flux - corrected
+        sflux_s = total( CRD.mgnt_flux_raw(vpc_pxinds),/double, /nan)           ;Total polar signed flux   - corrected
+        sfluxc_s = total( CRD.mgnt_flux_corr(vpc_pxinds),/double, /nan)         ;Total polar signed flux   - corrected
+        posfluxc_s = total( CRD.mgnt_flux_corr(pc_poss),/double, /nan)          ;Total positive polar flux - corrected
+        negfluxc_s = total( CRD.mgnt_flux_corr(pc_negs),/double, /nan)          ;Total negative polar flux - corrected
+        visarea_s = total( CRD.mgnt_ar(vpc_pxinds), /double, /nan)              ;Total visible area
+        max_pxflux_s = max(abs( CRD.mgnt_flux_corr(vpc_pxinds) ), /nan)         ;Maximum pixel flux        - corrected
+        max_pxf_s = max( CRD.im_raw(vpc_pxinds) ,/nan)                          ;Maximum uncorrected pixel field
+        max_pxfc_s =  max( CRD.im_crr(vpc_pxinds) ,/nan)                        ;Maximum corrected pixel field 
                 
     endelse
-    tmp_PF = {pf_day, mdi_i, date, intf_n, intfc_n, unsflux_n, sflux_n, posflux_n, negflux_n, vnpc_pxn, visarea_n, max_pxflux_n, max_pxf_n, max_pxfc_n, n_swt, intf_s, intfc_s, unsflux_s, sflux_s, posflux_s, negflux_s, vnpc_pxs, visarea_s, max_pxflux_s, max_pxf_s, max_pxfc_s, s_swt}
+    tmp_PF = {pf_day, mdi_i, date, intf_n, intfc_n, unsflux_n, unsfluxc_n, sflux_n, sfluxc_n, posfluxc_n, negfluxc_n, vnpc_pxn, visarea_n, max_pxflux_n, max_pxf_n, max_pxfc_n, n_swt, intf_s, intfc_s, unsflux_s, unsfluxc_s, sflux_s, sfluxc_s, posfluxc_s, negfluxc_s, vnpc_pxs, visarea_s, max_pxflux_s, max_pxf_s, max_pxfc_s, s_swt}
     ;if (n_elements(PF_data) eq 1) then begin
     ;    if (PF_data.mdi_i eq 0) then PF_data = tmp_PF ;To eliminate zero row of initilization
     ;endif else begin 
         PF_data = [PF_data, tmp_PF] 
     ;endelse
+
+    stop
 ENDREP UNTIL (mdi_i gt mdi_f)
 
 ;first = 0
@@ -256,8 +266,8 @@ ENDREP UNTIL (mdi_i gt mdi_f)
 ;ENDCASE
 
 filename = string('PF_data' + start_date + '_' + end_date + '.csv')
-head = ['mdi_i','date','intf_n', 'intfc_n', 'unsflux_n', 'sflux_n', 'posflux_n', 'negflux_n', 'vnpc_pxn', 'visarea_n', 'max_pxflux_n', 'max_pxf_n', 'max_pxfc_n', 'n_swt', $
-                       'intf_s', 'intfc_s', 'unsflux_s', 'sflux_s', 'posflux_s', 'negflux_s', 'vnpc_pxs', 'visarea_s', 'max_pxflux_s', 'max_pxf_s', 'max_pxfc_s', 's_swt']
+head = ['mdi_i','date','intf_n', 'intfc_n', 'unsflux_n', 'unsfluxc_n', 'sflux_n', 'sfluxc_n', 'posfluxc_n', 'negfluxc_n', 'vnpc_pxn', 'visarea_n', 'max_pxflux_n', 'max_pxf_n', 'max_pxfc_n', 'n_swt', $
+                       'intf_s', 'intfc_s', 'unsflux_s', 'unsfluxc_s', 'sflux_s', 'sfluxc_s', 'posfluxc_s', 'negfluxc_s', 'vnpc_pxs', 'visarea_s', 'max_pxflux_s', 'max_pxf_s', 'max_pxfc_s', 's_swt']
 write_csv, filename, PF_data, HEADER = head
 
 END

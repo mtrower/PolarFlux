@@ -33,7 +33,8 @@ pro amj_coord, image_in, hdr_in, CRD_out, instr, seg_const=seg_const, display=di
 ;            2.  im_crr: magnetogram corrected using LOS component and assuming al field is radial
 ;            3.  hdr: header file of the input magnetogram
 ;            4.  mgnt_ar: elements of area corresponding to each pixel
-;            5.  mgnt_flx: flux elements corresponding to each pixel
+;            5.  mgnt_flx_raw: flux elements corresponding to each pixel - uncorrected field
+;            5.  mgnt_flx_corr: flux elements corresponding to each pixel - corrected field
 ;            6.  Xar: x coordinate in a heliographic coordinate system 
 ;            7.  Yar: y coordinate in a heliographic coordinate system 
 ;            8.  Zar: z coordinate in a heliographic coordinate system
@@ -63,7 +64,7 @@ im=image_in
 sz=size(im)
 
 ;Constant with parameters for plotting, make sure the values are the same as in pnr_dt.rpo
-seg_const_def={k_sig:15.0, valid_range:[-20000.,20000.], deg_lim:85.0}
+seg_const_def={k_sig:15.0, valid_range:[-20000.,20000.], deg_lim:75.0}
 
 if not keyword_set(seg_const) then begin
     seg_const=seg_const_def
@@ -260,9 +261,9 @@ Yobs = cos(B0*!dtor)*sin(L0*!dtor)
 Zobs = sin(B0*!dtor)
 
 M_corr = cos(Lath*!dtor)*cos(Lonh*!dtor)*Xobs + cos(Lath*!dtor)*sin(Lonh*!dtor)*Yobs + sin(Lath*!dtor)*Zobs
-im = im/M_corr
+im_corr = im/M_corr
 
-im[where( (R gt di*sin(seg_const.deg_lim*!dtor)) and finite(im) )] = 0.0
+im_corr[where( (R gt di*sin(seg_const.deg_lim*!dtor)) and finite(im_corr) )] = 0.0
 
 ;
 ;Corrected image Display------------------------------------------------
@@ -337,7 +338,8 @@ endif
 ;Calculating flux---------------------------------------------
 print, 'Calculating magnetic flux...'
 
-mgnt_flx = mgnt_ar*im
+mgnt_flux_corr = mgnt_ar*im_corr
+mgnt_flux_raw = mgnt_ar*imgs0
 
 if keyword_set(display) then begin
     loadct,0,/silent
@@ -353,7 +355,7 @@ if keyword_set(display) then begin
 endif
 
 
-CRD_out = {im_raw: imgs0, im_crr: im, hdr:hdr_in, mgnt_ar:mgnt_ar, mgnt_flx:mgnt_flx, Xar:Xar, Yar:Yar, Zar:Zar, Lath:Lath, Lonh:Lonh}
+CRD_out = {im_raw: imgs0, im_crr: im, hdr:hdr_in, mgnt_ar:mgnt_ar, mgnt_flux_raw: mgnt_flux_raw, mgnt_flux_corr: mgnt_flux_corr, Xar:Xar, Yar:Yar, Zar:Zar, Lath:Lath, Lonh:Lonh}
 
 return
 end
