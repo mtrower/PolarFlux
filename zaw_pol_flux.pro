@@ -145,12 +145,18 @@ REPEAT begin
     endelse
 
     ;Calculate heliospheric data    
-    amj_coord, mg.img, hdr, CRD, instr
-    s = size(CRD.im_raw)
-    Xg = transpose(double(floor(findgen(s[1],s[1])/s[1]))) - hfx 
-    Yg = double(floor(findgen(s[1],s[1])/s[1])) - hfy 
-    R = sqrt( Xg^2 + Yg^2 )*X_scl*60.0
-    
+    amj_coord, mg.img, hdr, CRD, instr;, /disp
+    sz = size(CRD.im_raw)
+    Xg = transpose(double(floor(findgen(sz[1],sz[1])/sz[1]))) - hfx 
+    Yg = double(floor(findgen(sz[1],sz[1])/sz[1])) - hfy 
+    R = sqrt( Xg^2 + Yg^2 )
+
+    Xg = Xg*X_scl
+    Yg = Yg*Y_scl
+
+
+
+
     ;;North
     n_swt = 0.0
     pc_pxindn = where(R le di and CRD.Lath ge deg_lim, npc_pxn);   Polar cap pixels
@@ -254,7 +260,7 @@ REPEAT begin
         PF_data = [PF_data, tmp_PF] 
     ;endelse
 
-    stop
+    ;stop
 ENDREP UNTIL (mdi_i gt mdi_f)
 
 ;first = 0
