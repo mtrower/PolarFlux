@@ -138,7 +138,7 @@ IF( cf gt 0 ) THEN begin
 
 		; KPVT SPMG
 		if instr eq 2 then begin
-			m = m[*,*,2]
+			m = m[*,*,5]
 			p =  0.0
 			b0 = sxpar( hdr, 'EPH_B0' )
 			radius = sxpar( hdr, 'EPH_R0' )
