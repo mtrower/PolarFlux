@@ -46,7 +46,7 @@ stat = 1
 ;Set instrument parameters
 ;First reference day for keeping track time easily
 if instr eq 1 then DayOff = julday(1,1,1970);   KPVT 512
-if instr eq 2 then DayOff = julday(1,1,1970);   KPVT SPMG
+if instr eq 2 then DayOff = julday(1,1,1990);   KPVT SPMG
 if instr eq 3 then DayOff = julday(1,1,1993);   MDI
 if instr eq 4 then DayOff = julday(1,1,2009);   HMI
 
@@ -126,6 +126,26 @@ REPEAT begin
             Y_scl = fxpar(hdr, 'CDELT2')*fxpar(hdr, 'CRR_SCLY')/60.0
 
         endif
+
+        ;KPVT-SPMG
+        if instr eq 2 then begin
+        
+            ;Define center and radius
+            hfx = fxpar(hdr, 'CRPIX1A');35;'CRPIX1');  Location of the center in x pixels 
+            hfy = fxpar(hdr, 'CRPIX2A');+1.0;    Location of the center in y pixels
+            di = fxpar(hdr,'EPH_R0');
+
+            ;Load Solar Coordinates
+            P0 = 0.0
+            RD = !values.f_nan
+            B0 = fxpar(hdr, 'EPH_B0')
+            L0 = fxpar(hdr, 'EPH_L0')
+
+            ;Observer Coordinates
+            X_scl = fxpar(hdr, 'CDELT1')*fxpar(hdr, 'CRR_SCLX')/60.0
+            Y_scl = fxpar(hdr, 'CDELT2')*fxpar(hdr, 'CRR_SCLY')/60.0
+
+        endif        
 
         ;MDI
         if instr eq 3 then begin

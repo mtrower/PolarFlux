@@ -130,6 +130,27 @@ endif else begin
 
 	endif
 
+    ;KPVT-SPMG
+    if instr eq 2 then begin
+    
+        ;Define center and radius
+        hfx = fxpar(hdr_in, 'CRPIX1A');35;'CRPIX1');  Location of the center in x pixels 
+        hfy = fxpar(hdr_in, 'CRPIX2A');+1.0;    Location of the center in y pixels
+        di = fxpar(hdr_in,'EPH_R0');
+
+        ;Load Solar Coordinates
+        P0 = 0.0
+        RD = !values.f_nan
+        B0 = fxpar(hdr_in, 'EPH_B0')
+        L0 = fxpar(hdr_in, 'EPH_L0')
+
+        ;Observer Coordinates
+        X_scl = fxpar(hdr_in, 'CDELT1')*fxpar(hdr_in, 'CRR_SCLX')/60.0
+        Y_scl = fxpar(hdr_in, 'CDELT2')*fxpar(hdr_in, 'CRR_SCLY')/60.0
+
+    endif
+
+
 	;MDI
 	if instr eq 3 then begin
 	
