@@ -60,6 +60,11 @@ PF_data = {pf_day, mdi_i: 0L, date: '', intf_n: !values.f_nan, intfc_n: !values.
             intf_s: !values.f_nan, intfc_s: !values.f_nan, unsflux_s: !values.f_nan, unsfluxc_s: !values.f_nan, sflux_s: !values.f_nan, sfluxc_s: !values.f_nan, posfluxc_s: !values.f_nan, negfluxc_s: !values.f_nan, $
             vnpc_pxs: !values.f_nan, visarea_s: !values.f_nan, max_pxflux_s: !values.f_nan, max_pxf_s: !values.f_nan, max_pxfc_s: !values.f_nan, s_swt: !values.f_nan}
 
+head = ['mdi_i','date','intf_n', 'intfc_n', 'unsflux_n', 'unsfluxc_n', 'sflux_n', 'sfluxc_n', 'posfluxc_n', 'negfluxc_n', 'vnpc_pxn', 'visarea_n', 'max_pxflux_n', 'max_pxf_n', 'max_pxfc_n', 'n_swt', $
+                       'intf_s', 'intfc_s', 'unsflux_s', 'unsfluxc_s', 'sflux_s', 'sfluxc_s', 'posfluxc_s', 'negfluxc_s', 'vnpc_pxs', 'visarea_s', 'max_pxflux_s', 'max_pxf_s', 'max_pxfc_s', 's_swt']
+
+filename = string('PF_data' + start_date + '_' + end_date + '.csv')
+
 REPEAT begin
     
     ;Reading files 
@@ -72,7 +77,7 @@ REPEAT begin
             s = size(mg)    
             
             mdi_i = mdi_i + 1          
-    endrep until (s[2] eq 8)
+    endrep until (s[2] eq 8 or mdi_i gt mdi_f)
 
     if (date eq end_date) then stat = 0
 
@@ -259,7 +264,7 @@ REPEAT begin
     ;endif else begin 
         PF_data = [PF_data, tmp_PF] 
     ;endelse
-
+    write_csv, filename, PF_data, HEADER = head
     ;stop
 ENDREP UNTIL (mdi_i gt mdi_f)
 
