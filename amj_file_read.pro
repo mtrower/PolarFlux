@@ -40,7 +40,16 @@ if instr eq 1 then begin
 	fn0 = '/disk/data/munoz/KPVT/' + dir_str
 	fn  = fn0 + '*' + strmid(datestr,0,4) + strmid(datestr,5,2) + strmid(datestr,8,2) + '*.fits'
 	dn  = file_search( fn, count=cf )
-endif	
+endif
+
+; KPVT SPMG
+if instr eq 2 then begin
+	dir_str = strmid(datestr,2,2) + strmid(datestr,5,2) + '/'
+
+	fn0 = '/disk/data/munoz/SPMG/' + dir_str
+	fn  = fn0 + '*' + strmid(datestr,0,4) + strmid(datestr,5,2) + strmid(datestr,8,2) + '*.fits'
+	dn  = file_search( fn, count=cf )
+endif		
 	
 ;MDI
 if instr eq 3 then begin
@@ -126,6 +135,17 @@ IF( cf gt 0 ) THEN begin
 			x0 = fxpar(hdr, 'CRPIX1A')
 			y0 = fxpar(hdr, 'CRPIX2A')			
 		endif
+
+		; KPVT SPMG
+		if instr eq 2 then begin
+			m = m[*,*,2]
+			p =  0.0
+			b0 = sxpar( hdr, 'EPH_B0' )
+			radius = sxpar( hdr, 'EPH_R0' )
+
+			x0 = fxpar(hdr, 'CRPIX1A')
+			y0 = fxpar(hdr, 'CRPIX2A')			
+		endif		
 		
 		;MDI
 		if instr eq 3 then begin
