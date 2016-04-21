@@ -285,8 +285,9 @@ Zobs = sin(B0*!dtor)
 M_corr = cos(Lath*!dtor)*cos(Lonh*!dtor)*Xobs + cos(Lath*!dtor)*sin(Lonh*!dtor)*Yobs + sin(Lath*!dtor)*Zobs
 im_corr = im/M_corr
 
-im_corr[where( (R gt di*sin(seg_const.deg_lim*!dtor)) and finite(im_corr) )] = 0.0
+im_corr_ind = where( (R gt di*sin(seg_const.deg_lim*!dtor)) and finite(im_corr), count )
 
+if count NE 0 then im_corr[im_corr_ind] = 0.0 
 ;
 ;Corrected image Display------------------------------------------------
 ;
