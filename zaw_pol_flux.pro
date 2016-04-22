@@ -133,7 +133,7 @@ REPEAT begin
             ;Define center and radius
             hfx = fxpar(hdr, 'CRPIX1A');35;'CRPIX1');  Location of the center in x pixels 
             hfy = fxpar(hdr, 'CRPIX2A');+1.0;    Location of the center in y pixels
-            di = fxpar(hdr,'EPH_R0');
+            di = fxpar(hdr,'EPH_R0')/fxpar(hdr_in,'SCALE');
 
             ;Load Solar Coordinates
             P0 = 0.0
