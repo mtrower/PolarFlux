@@ -377,8 +377,6 @@ if keyword_set(display) then begin
     loadct, 0
 endif
 
-stop
-
 CRD_out = {im_raw: imgs0, im_crr: im, hdr:hdr_in, mgnt_ar:mgnt_ar, mgnt_flux_raw: mgnt_flux_raw, mgnt_flux_corr: mgnt_flux_corr, Xar:Xar, Yar:Yar, Zar:Zar, Lath:Lath, Lonh:Lonh}
 
 return
