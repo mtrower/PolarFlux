@@ -136,7 +136,7 @@ endif else begin
         ;Define center and radius
         hfx = fxpar(hdr_in, 'CRPIX1A');35;'CRPIX1');  Location of the center in x pixels 
         hfy = fxpar(hdr_in, 'CRPIX2A');+1.0;    Location of the center in y pixels
-        di = fxpar(hdr_in,'EPH_R0');
+        di = fxpar(hdr_in,'EPH_R0')/fxpar(hdr_in,'SCALE');
 
         ;Load Solar Coordinates
         P0 = 0.0
@@ -376,7 +376,6 @@ if keyword_set(display) then begin
     tvcircle,di*display_zoom, hfx*display_zoom,hfy*display_zoom,color=200*2/6,/device,thick=3
     loadct, 0
 endif
-
 
 CRD_out = {im_raw: imgs0, im_crr: im, hdr:hdr_in, mgnt_ar:mgnt_ar, mgnt_flux_raw: mgnt_flux_raw, mgnt_flux_corr: mgnt_flux_corr, Xar:Xar, Yar:Yar, Zar:Zar, Lath:Lath, Lonh:Lonh}
 

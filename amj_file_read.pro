@@ -141,7 +141,7 @@ IF( cf gt 0 ) THEN begin
 			m = m[*,*,5]
 			p =  0.0
 			b0 = sxpar( hdr, 'EPH_B0' )
-			radius = sxpar( hdr, 'EPH_R0' )
+			radius = sxpar( hdr, 'EPH_R0' )/fxpar(hdr,'SCALE')
 
 			x0 = fxpar(hdr, 'CRPIX1A')
 			y0 = fxpar(hdr, 'CRPIX2A')			
