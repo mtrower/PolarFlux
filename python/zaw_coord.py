@@ -15,8 +15,12 @@ DSUN_METERS = sun.constants.au.si.value
 
 class CRD:
 	"""Calculates various magnetogram coordinate information.
-
-
+	Can calculate heliographic coordinate information,
+	line of sight (LOS) corrections for the magnetic field,
+	area elements for each pixel, and magnetic flux. This can
+	be done for one pixel, or the whole data map. If the whole
+	data map is given as a parameter, it will save the information
+	as an instance attribute for the object.
 
 	"""
 	
@@ -52,11 +56,12 @@ class CRD:
 
 		Can accept either a coordinate pair (x, y) or an entire 2D array.
 
-		The cartesian coordinates are measured from the center pixel
-		of the map.
 		The function will return a coordinate pair if given a coordinate
 		pair or two arrays (latitude and longitude) if given a data array.
 		Those arrays are indexed such that [0,0] is the top left pixel.
+
+		Use standard python indexing conventions for both the single
+		coordinate and array calculations [row, column].
 
 		Examples: 
 		lath, lonh = kpvt.heliographic(kpvt.im_raw.data)
@@ -68,18 +73,18 @@ class CRD:
 		
 		# Check for single coordinate or ndarray object.
 		if isinstance(args[0], np.ndarray):
-			#Retrieve integer dimensions and create arrays holding
-			#x and y coordinates of each pixel
+			# Retrieve integer dimensions and create arrays holding
+			# x and y coordinates of each pixel
 			xdim = np.int(np.floor(self.im_raw.dimensions[0].value))
 			ydim = np.int(np.floor(self.im_raw.dimensions[1].value))
-			try: #if len(args) == 1:
+			try:
 				xrow = (np.arange(0, xdim) - self.X0 + args[1])*xScl
 				yrow = (np.arange(0, ydim) - self.Y0 + args[2])*yScl
 				self.xg, self.yg = np.meshgrid(xrow, yrow, indexing='xy')
 				self.rg = np.sqrt(self.xg**2 + self.yg**2)
 				x = self.xg
 				y = -self.yg
-			except IndexError: #Don't include the shift
+			except IndexError:
 				xrow = (np.arange(0, xdim) - self.X0)*xScl
 				yrow = (np.arange(0, ydim) - self.Y0)*yScl
 				self.xg, self.yg = np.meshgrid(xrow, yrow, indexing='xy')
@@ -87,6 +92,9 @@ class CRD:
 				x = self.xg
 				y = -self.yg
 		else:
+			# Have to switch coordinate conventions because calculations
+			# assume standard cartesian whereas python indexing is 
+			# [row, column]
 			x = (args[1] - self.X0)*xScl
 			y = (self.Y0 - args[0])*yScl
 		
@@ -171,6 +179,7 @@ class CRD:
 			lonLR, latLR = self.heliographic(x + .5, y + .5)
 			lonUR, latUR = self.heliographic(x - .5, y + .5)
 
+		# Calculating unit vectors of pixel corners for solid angle.
 		r1 = np.array([np.cos(np.deg2rad(latUL))*np.cos(np.deg2rad(lonUL)),
 						np.cos(np.deg2rad(latUL))*np.sin(np.deg2rad(lonUL)),
 						np.sin(np.deg2rad(latUL))])
@@ -187,33 +196,20 @@ class CRD:
 						np.cos(np.deg2rad(latUR))*np.sin(np.deg2rad(lonUR)),
 						np.sin(np.deg2rad(latUR))])
 
-		
-		crosspn = np.cross(r1, r2, axisa=0, axisb=0, axisc=0)
-		print("Dim cross product is", crosspn.shape)
-
-		numerator1 = dot(crosspn, r3)
-		numerator2 = dot(np.cross(r3, r4, axisa=0, axisb=0, axisc=0), r1)
-		#result1 = numerator1/(dot(r1, r2) + dot(r2, r3) + dot(r3, r1) + 1)
-		#result2 = numerator2/(dot(r2, r3) + dot(r3, r4) + dot(r4, r2) + 1)
-		
-		solid_angle1 = 2*np.arctan2(numerator1, (dot(r1, r2) + dot(r2, r3) + dot(r3, r1) + 1))
-		solid_angle2 = 2*np.arctan2(numerator2, (dot(r3, r4) + dot(r4, r1) + dot(r3, r1) + 1))
+		# Calculate solid angle of pixel based on a pyrimid shaped polygon.
+		# See 
+		cross1 = np.cross(r1, r2, axisa=0, axisb=0, axisc=0)
+		cross2 = np.cross(r3, r4, axisa=0, axisb=0, axisc=0)
+		numerator1 = dot(cross1, r3)
+		numerator2 = dot(cross2, r1)
+		solid_angle1 = 2*np.arctan2(numerator1,
+						(dot(r1, r2) + dot(r2, r3) + dot(r3, r1) + 1))
+		solid_angle2 = 2*np.arctan2(numerator2, 
+						(dot(r3, r4) + dot(r4, r1) + dot(r3, r1) + 1))
 		solid_angle = solid_angle1 + solid_angle2
 		r = 6.957e10 * u.cm
-		
-		#dPhi is the change in azimuthal angle.
-		dPhi = lonUR - lonLL
-		dPhi = np.deg2rad(dPhi)
-		#Theta is used for the change in polar angle.
-		theta2 = np.deg2rad(90-latLL)
-		theta1 = np.deg2rad(90-latUR)
-
-		#area element = r^2sin(theta)*dtheta*dphi
 		if isinstance(args[0], np.ndarray):
 			self.area = np.abs((r**2)*solid_angle)
-			#self.area = np.abs((r**2)*dPhi*(np.cos(theta1) - np.cos(theta2)))
-			#self.area = (r**2)*2*np.arctan(np.sin(.5*(latUR + latLL))/np.sin(.5*(latUR - latLL))*np.tan((lonUR - lonLL)/5))
-			#r**2*np.abs(np.sin(np.deg2rad(latUR)) - np.sin(np.deg2rad(latLL)))*np.abs(np.deg2rad(lonUR) - np.deg2rad(lonLL))
 			ind = np.where(self.rg > self.rsun)
 			self.area[ind] = np.nan
 			return self.area
