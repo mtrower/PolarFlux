@@ -93,7 +93,7 @@ class CRD:
 		#TODO
 		return None
 
-	def heliographic(self, *args):
+	def heliographic(self, *args, corners=False):
 		"""Calculate hg coordinates from hpc and returns it.
 
 		Can accept either a coordinate pair (x, y) or an entire 2D array.
@@ -128,8 +128,12 @@ class CRD:
 				x = self.xg
 				y = -self.yg
 			except IndexError:
-				xrow = (np.arange(0, xdim) - self.X0)*xScl
-				yrow = (np.arange(0, ydim) - self.Y0)*yScl
+				if corners:
+					xrow = (np.arange(0, xdim + 1) - self.X0 - 0.5)*xScl
+					yrow = (np.arange(0, ydim + 1) - self.Y0 - 0.5)*yScl
+				else:
+					xrow = (np.arange(0, xdim) - self.X0)*xScl
+					yrow = (np.arange(0, ydim) - self.Y0)*yScl
 				self.xg, self.yg = np.meshgrid(xrow, yrow, indexing='xy')
 				self.rg = np.sqrt(self.xg**2 + self.yg**2)
 				x = self.xg
@@ -143,17 +147,20 @@ class CRD:
 
 		# First convert to heliocentric cartesian coordinates.
 		# Calculations taken from sunpy.wcs.
-		cosx = np.cos(x*np.deg2rad(1)/3600.0)
-		sinx = np.sin(x*np.deg2rad(1)/3600.0)
-		cosy = np.cos(y*np.deg2rad(1)/3600.0)
-		siny = np.sin(y*np.deg2rad(1)/3600.0)
+		x *= np.deg2rad(1)/3600.0
+		y *= np.deg2rad(1)/3600.0
 
-		q = self.dsun * cosy * cosx
+		# cosx = np.cos(x*np.deg2rad(1)/3600.0)
+		# sinx = np.sin(x*np.deg2rad(1)/3600.0)
+		# cosy = np.cos(y*np.deg2rad(1)/3600.0)
+		# siny = np.sin(y*np.deg2rad(1)/3600.0)
+
+		q = self.dsun * np.cos(y) * np.cos(x)
 		distance = q**2 - self.dsun**2 + RSUN_METERS**2
 		distance = q - np.sqrt(distance)
 
-		rx = distance * cosy * sinx
-		ry = distance * siny
+		rx = distance * np.cos(y) * np.sin(x)
+		ry = distance * np.sin(y)
 		rz = np.sqrt(RSUN_METERS**2 - rx**2 - ry**2)
 
 		# Now convert to heliographic coordinates.
@@ -214,10 +221,24 @@ class CRD:
 		#Information on pixel standard is in this article.
 		#http://www.aanda.org/component/article?access=bibcode&bibcode=&bibcode=2002A%2526A...395.1061GFUL
 		if isinstance(args[0], np.ndarray):
-			lonUL, latUL = self.heliographic(args[0], -.5, -.5)
-			lonLL, latLL = self.heliographic(args[0], .5, -.5)
-			lonLR, latLR = self.heliographic(args[0], .5, .5)
-			lonUR, latUR = self.heliographic(args[0], -.5, .5)
+			lon, lat = self.heliographic(args[0], corners=True)
+			# Calculating unit vectors of pixel corners for solid angle.
+			r1 = np.array([np.cos(np.deg2rad(lat[0:len(lat) - 2, 0: len(lat) - 2]))*np.cos(np.deg2rad(lon[0:len(lat) - 2, 0: len(lat) - 2])),
+							np.cos(np.deg2rad(lat[0:len(lat) - 2, 0: len(lat) - 2]))*np.sin(np.deg2rad(lon[0:len(lat) - 2, 0: len(lat) - 2])),
+							np.sin(np.deg2rad(lat[0:len(lat) - 2, 0: len(lat) - 2]))])
+
+			r2 = np.array([np.cos(np.deg2rad(lat[1:len(lat) - 1, 0: len(lat) - 2]))*np.cos(np.deg2rad(lon[1:len(lat) - 1, 0: len(lat) - 2])),
+							np.cos(np.deg2rad(lat[1:len(lat) - 1, 0: len(lat) - 2]))*np.sin(np.deg2rad(lon[1:len(lat) - 1, 0: len(lat) - 2])),
+							np.sin(np.deg2rad(lat[1:len(lat) - 1, 0: len(lat) - 2]))])
+
+			r3 = np.array([np.cos(np.deg2rad(lat[1:len(lat) - 1, 1: len(lat) - 1]))*np.cos(np.deg2rad(lon[1:len(lat) - 1, 1: len(lat) - 1])),
+							np.cos(np.deg2rad(lat[1:len(lat) - 1, 1: len(lat) - 1]))*np.sin(np.deg2rad(lon[1:len(lat) - 1, 1: len(lat) - 1])),
+							np.sin(np.deg2rad(lat[1:len(lat) - 1, 1: len(lat) - 1]))])
+
+			r4 = np.array([np.cos(np.deg2rad(lat[0:len(lat) - 2, 1: len(lat) - 1]))*np.cos(np.deg2rad(lon[0:len(lat) - 2, 1: len(lat) - 1])),
+							np.cos(np.deg2rad(lat[0:len(lat) - 2, 1: len(lat) - 1]))*np.sin(np.deg2rad(lon[0:len(lat) - 2, 1: len(lat) - 1])),
+							np.sin(np.deg2rad(lat[0:len(lat) - 2, 1: len(lat) - 1]))])
+
 		else:
 			x = args[0]
 			y = args[1]
@@ -226,22 +247,22 @@ class CRD:
 			lonLR, latLR = self.heliographic(x + .5, y + .5)
 			lonUR, latUR = self.heliographic(x - .5, y + .5)
 
-		# Calculating unit vectors of pixel corners for solid angle.
-		r1 = np.array([np.cos(np.deg2rad(latUL))*np.cos(np.deg2rad(lonUL)),
-						np.cos(np.deg2rad(latUL))*np.sin(np.deg2rad(lonUL)),
-						np.sin(np.deg2rad(latUL))])
+			# Calculating unit vectors of pixel corners for solid angle.
+			r1 = np.array([np.cos(np.deg2rad(latUL))*np.cos(np.deg2rad(lonUL)),
+							np.cos(np.deg2rad(latUL))*np.sin(np.deg2rad(lonUL)),
+							np.sin(np.deg2rad(latUL))])
 
-		r2 = np.array([np.cos(np.deg2rad(latLL))*np.cos(np.deg2rad(lonLL)),
-						np.cos(np.deg2rad(latLL))*np.sin(np.deg2rad(lonLL)),
-						np.sin(np.deg2rad(latLL))])
+			r2 = np.array([np.cos(np.deg2rad(latLL))*np.cos(np.deg2rad(lonLL)),
+							np.cos(np.deg2rad(latLL))*np.sin(np.deg2rad(lonLL)),
+							np.sin(np.deg2rad(latLL))])
 
-		r3 = np.array([np.cos(np.deg2rad(latLR))*np.cos(np.deg2rad(lonLR)),
-						np.cos(np.deg2rad(latLR))*np.sin(np.deg2rad(lonLR)),
-						np.sin(np.deg2rad(latLR))])
+			r3 = np.array([np.cos(np.deg2rad(latLR))*np.cos(np.deg2rad(lonLR)),
+							np.cos(np.deg2rad(latLR))*np.sin(np.deg2rad(lonLR)),
+							np.sin(np.deg2rad(latLR))])
 
-		r4 = np.array([np.cos(np.deg2rad(latUR))*np.cos(np.deg2rad(lonUR)),
-						np.cos(np.deg2rad(latUR))*np.sin(np.deg2rad(lonUR)),
-						np.sin(np.deg2rad(latUR))])
+			r4 = np.array([np.cos(np.deg2rad(latUR))*np.cos(np.deg2rad(lonUR)),
+							np.cos(np.deg2rad(latUR))*np.sin(np.deg2rad(lonUR)),
+							np.sin(np.deg2rad(latUR))])
 
 		# Calculate solid angle of pixel based on a pyrimid shaped polygon.
 		# See 
@@ -258,27 +279,33 @@ class CRD:
 		r = RSUN_METERS*100 # Convert to centimeters
 		if isinstance(args[0], np.ndarray):
 			self.area = np.abs((r**2)*solid_angle)
-			ind = np.where(self.rg > self.rsun)
+			ind = np.where(self.rg[1:len(self.rg)-1, 1:len(self.rg)-1] > self.rsun)
 			self.area[ind] = np.nan
 			return self.area
 		else:
 			return np.abs((r**2)*solid_angle)
 
-	def magnetic_flux(self, *args):
+	def magnetic_flux(self, *args, raw_field=False):
 		""" Takes in coordinates and returns magnetic flux of pixel."""
 		# Use existing attributes if saved.
 		if hasattr(self, 'area'):
 			area = self.area
 		else:	
 			area = self.eoa(*args)
-		if hasattr(self, 'im_corr'):
-			field = self.im_corr
-		else:
-			field = self.los_corr(*args)
 
-		if isinstance(args[0], np.ndarray) and not hasattr(self, 'mgnt_flux'):
-			self.mgnt_flux = area*field
-		return area*field
+		if raw_field:
+			field = self.im_raw.data
+			if isinstance(args[0], np.ndarray) and not hasattr(self, 'mgnt_flux_raw'):
+				self.mgnt_flux_raw = area*field
+			return self.mgnt_flux_raw
+		else:
+			if not hasattr(self, 'im_corr'):
+				field = self.los_corr
+			else:
+				field = self.im_corr
+			if isinstance(args[0], np.ndarray) and not hasattr(self, 'mgnt_flux'):
+				self.mgnt_flux_corr = area*field
+			return self.mgnt_flux_corr
 
 def dot(a, b):
 	return  np.array(a[0]*b[0] + a[1]*b[1] + a[2]*b[2])

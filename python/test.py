@@ -62,7 +62,7 @@ hmi = CRD('HMI\\hmi.M_720s.20100504_214800_TAI.1.magnetogram.fits')
 # print(spmgarea.nansum())
 
 #HMI
-#hmi.heliographic(hmi.im_raw.data)
+hmi.heliographic(hmi.im_raw.data)
 #hmi.los_corr(hmi.im_raw.data)
 hmiarea = hmi.eoa(hmi.im_raw.data)
 #hmi.magnetic_flux(hmi.im_raw.data)
