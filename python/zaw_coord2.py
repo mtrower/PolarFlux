@@ -27,68 +27,28 @@ class CRD:
 	def __init__(self, filename):
 		"""Reads magnetogram as a sunpy.map object."""
 		self.im_raw = sunpy.map.Map(filename)
-
-		if self.im_raw.detector == '512':
-
-			# Define center of sun and location of detector.
-			self.X0 = self.im_raw.meta['CRPIX1A']
-			self.Y0 = self.im_raw.meta['CRPIX2A']
+		try:
 			self.B0 = self.im_raw.meta['B0']
+		except KeyError:
+			self.B0 = self.im_raw.meta['OBS_B0']
+		try:
 			self.L0 = self.im_raw.meta['L0']
-			self.rsun = self.im_raw.rsun_obs.value
-			self.dsun = DSUN_METERS
-
-		elif self.im_raw.detector == 'SPMG':
-
-			# Define center of sun and location of detector.
-			self.X0 = self.im_raw.meta['CRPIX1A']
-			self.Y0 = self.im_raw.meta['CRPIX2A']
-			self.B0 = self.im_raw.meta['B0']
-			self.L0 = self.im_raw.meta['L0']
-			self.rsun = self.im_raw.rsun_obs.value / self.im_raw.meta['SCALE']
-			self.dsun = DSUN_METERS
-
-		elif self.im_raw.detector == 'MDI':
-
-			# Define center of sun and location of detector.
+		except KeyError:
+			self.L0 = self.im_raw.meta['OBS_L0']
+		try:
 			self.X0 = self.im_raw.meta['X0']
+		except KeyError:
+			self.X0 = self.im_raw.meta['IMG_X0']
+		try:
 			self.Y0 = self.im_raw.meta['Y0']
-			self.B0 = self.im_raw.meta['B0']
-			self.L0 = self.im_raw.meta['L0']
-			self.rsun = self.im_raw.meta['R_SUN']
-			self.dsun = self.im_raw.meta['OBS_DIST']/.0046491
-
-		elif self.im_raw.detector == 'HMI':
-			self.X0 = self.im_raw.meta['CRPIX1']
-			self.Y0 = self.im_raw.meta['CRPIX2']
-			self.B0 = self.im_raw.meta['CRLT_OBS']
-			self.L0 = self.im_raw.meta['CRLN_OBS']
+		except KeyError:
+			self.Y0 = self.im_raw.meta['IMG_Y0']
+		if self.im_raw.detector == 'SPMG':
+			self.rsun = self.im_raw.rsun_obs.value / self.im_raw.meta['SCALE']	
+		else:
 			self.rsun = self.im_raw.rsun_obs.value
-			self.dsun = self.im_raw.dsun.value
-
-		# try:
-		# 	self.B0 = self.im_raw.meta['B0']
-		# except KeyError:
-		# 	self.B0 = self.im_raw.meta['OBS_B0']
-		# try:
-		# 	self.L0 = self.im_raw.meta['L0']
-		# except KeyError:
-		# 	self.L0 = self.im_raw.meta['OBS_L0']
-		# try:
-		# 	self.X0 = self.im_raw.meta['CRPIX1']
-		# except KeyError:
-		# 	self.X0 = self.im_raw.meta['CRPIX1A']
-		# except KeyError:
-		# 	self.X0 = self.im_raw.meta['X0']
-		# except KeyError:
-		# 	self.X0 = self.im_raw.meta['IMG_X0']
-		# try:
-		# 	self.Y0 = self.im_raw.meta['Y0']
-		# except KeyError:
-		# 	self.Y0 = self.im_raw.meta['IMG_Y0']
-		# if self.im_raw.detector == 'SPMG':
-		# 	self.rsun = self.im_raw.rsun_obs.value / self.im_raw.meta['SCALE']	
 		
+
 	def __repr__(self):
 		#TODO
 		return None
@@ -138,32 +98,45 @@ class CRD:
 			# Have to switch coordinate conventions because calculations
 			# assume standard cartesian whereas python indexing is 
 			# [row, column]
-			x = (args[1] - self.X0)*xScl
-			y = (self.Y0 - args[0])*yScl
+			x = (args[1] - self.X0)*xScl/60.0
+			y = (self.Y0 - args[0])*yScl/60.0
 
-		# First convert to heliocentric cartesian coordinates.
-		# Calculations taken from sunpy.wcs.
-		cosx = np.cos(x*np.deg2rad(1)/3600.0)
-		sinx = np.sin(x*np.deg2rad(1)/3600.0)
-		cosy = np.cos(y*np.deg2rad(1)/3600.0)
-		siny = np.sin(y*np.deg2rad(1)/3600.0)
+		b0_r = np.deg2rad(self.B0)
+		radius = self.rsun
+		Robs = 1/np.tan(np.deg2rad(radius/60))
 
-		q = self.dsun * cosy * cosx
-		distance = q**2 - self.dsun**2 + RSUN_METERS**2
-		distance = q - np.sqrt(distance)
+		xxat = np.tan(np.deg2rad(x/60))
+		yyat = np.tan(np.deg2rad(y/60))
 
-		rx = distance * cosy * sinx
-		ry = distance * siny
-		rz = np.sqrt(RSUN_METERS**2 - rx**2 - ry**2)
+		rat2 = (xxat**2 + yyat**2)
+		phi = 0*rat2
+		w_rat2 = np.where(rat2 is not 0)
+		phi[w_rat2] = np.arctan2(xxat[w_rat2], yyat[w_rat2])
 
-		# Now convert to heliographic coordinates.
-		cosb = np.cos(np.deg2rad(self.B0))
-		sinb = np.sin(np.deg2rad(self.B0))
+		max_ra = np.arcsin(1.0/Robs)
+		max_rat2 = np.tan(max_ra)*np.tan(max_ra)
 
-		hecr = np.sqrt(rx**2 + ry**2 + rz**2)
-		hgln = np.arctan2(rx, rz*cosb - ry*sinb) \
-		       + np.deg2rad(self.L0)
-		hglt = np.arcsin((ry * cosb + rz * sinb)/hecr)
+		ii = np.where(rat2 > max_rat2)
+		if ii[0].any() > 0:
+			rat2[ii] = max_rat2
+			#offlimb[ii] = 1
+
+		###############################################
+		ras2 = 0*rat2
+		ras2[w_rat2] = 1.0/(1.0 + 1.0/rat2[w_rat2])
+		d1 = (1.0 - ras2)
+		d2 = (1.0 - (Robs**2*ras2))
+		x = ras2*Robs + np.sqrt(d1)*np.sqrt(d2)
+		rr = np.sqrt(rat2*Robs)
+		t1 = np.sin(phi)*rr
+		t2 = np.cos(phi)*rr
+
+		hglt = np.arcsin(t2)
+		hgln = np.arctan2(x, t1)
+
+
+
+
 		# Only add the instance attribute if it doesn't exist.
 		if isinstance(args[0], np.ndarray) and not hasattr(self, 'lonh'):
 			self.lonh = np.rad2deg(hgln)
@@ -176,19 +149,17 @@ class CRD:
 
 		Applies the dot product between the observers unit vector and
 		the heliographic radial vector to get the true magnitude of 
-		the magnetic field vector. See geometric projection for
-		calulations.
+		the magnetic field vector. See geometric projection.
 		"""
 
-		# TODO optimize with saved lath, lonh data
 		if isinstance(args[0], np.ndarray):
 			lonh, lath = np.deg2rad(self.heliographic(args[0]))
 		else:
 			lonh, lath = np.deg2rad(self.heliographic(args[0], args[1]))
 
-		Xobs = np.cos(np.deg2rad(self.B0))*np.cos(np.deg2rad(self.L0))
-		Yobs = np.cos(np.deg2rad(self.B0))*np.sin(np.deg2rad(self.L0))
-		Zobs = np.sin(np.deg2rad(self.B0))
+		Xobs = np.cos(np.deg2rad(B0))*np.cos(np.deg2rad(self.L0))
+		Yobs = np.cos(np.deg2rad(B0))*np.sin(np.deg2rad(self.L0))
+		Zobs = np.sin(np.deg2rad(B0))
 
 		corr_factor = (np.cos(lath)*np.cos(lonh)*Xobs
 					   + np.cos(lath)*np.sin(lonh)*Yobs
@@ -205,9 +176,8 @@ class CRD:
 		Each pixel is projected onto the sun, and therefore pixels close to
 		the limbs have vastly greater areas. This function uses a closed form
 		solution to a spherical area integral to calulate the area based on
-		the heliographic coordinate unit vectors of each corner of the pixel.
-		We use these to calculate a solid angle of a pyramid with its apex
-		at the center of the sun.
+		the heliographic coordinates of the lower-left(LL) part of each pixel
+		and upper-right(UR) part of each pixel.
 		"""
 
 		#Assume coordinate is in center of pixel.
@@ -254,8 +224,8 @@ class CRD:
 		solid_angle2 = 2*np.arctan2(numerator2, 
 						(dot(r3, r4) + dot(r4, r1) + dot(r3, r1) + 1))
 		solid_angle = solid_angle1 + solid_angle2
+		r = 6.957e10 * u.cm
 
-		r = RSUN_METERS*100 # Convert to centimeters
 		if isinstance(args[0], np.ndarray):
 			self.area = np.abs((r**2)*solid_angle)
 			ind = np.where(self.rg > self.rsun)
@@ -266,17 +236,9 @@ class CRD:
 
 	def magnetic_flux(self, *args):
 		""" Takes in coordinates and returns magnetic flux of pixel."""
-		# Use existing attributes if saved.
-		if hasattr(self, 'area'):
-			area = self.area
-		else:	
-			area = self.eoa(*args)
-		if hasattr(self, 'im_corr'):
-			field = self.im_corr
-		else:
-			field = self.los_corr(*args)
-
-		if isinstance(args[0], np.ndarray) and not hasattr(self, 'mgnt_flux'):
+		area = self.area(*args)
+		field = self.los_corr(*args)
+		if isinstance(args[0], np.ndarray):
 			self.mgnt_flux = area*field
 		return area*field
 

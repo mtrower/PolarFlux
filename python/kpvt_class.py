@@ -97,7 +97,7 @@ class SPMGMap(sunpy.map.GenericMap):
     @property
     def rsun_obs(self):
         """ KPVT Magnetograms use a different keyword for distance to sun"""
-        return self.meta['EPH_R0'] * u.arcsec / self.meta['SCALE']
+        return self.meta['EPH_R0'] * u.arcsec
 
     @property
     def dsun(self):
