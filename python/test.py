@@ -7,9 +7,9 @@ import timeit
 start = timeit.default_timer()
 
 #x = CRD('MDI\\fd_M_96m_01d.1222.0005.fits')
-#kpvt = CRD('512c_eo000_C1_19771001_2048.fits')
+kpvt = CRD('512c_eo000_C1_19771001_2048.fits')
 #spmg = CRD('spmg_eo100_C1_19920421_1700.fits')
-hmi = CRD('HMI\\hmi.M_720s.20100504_214800_TAI.1.magnetogram.fits')
+#hmi = CRD('HMI\\hmi.M_720s.20100504_214800_TAI.1.magnetogram.fits')
 
 #Heliographic testing
 # lonh, lath = x.heliographic(x.im_raw.data)
@@ -46,12 +46,14 @@ hmi = CRD('HMI\\hmi.M_720s.20100504_214800_TAI.1.magnetogram.fits')
 #print(area.nansum())
 
 #KPVT
-# kpvt.heliographic(kpvt.im_raw.data)
-# kpvt.los_corr(kpvt.im_raw.data)
-#kpvt.eoa(kpvt.im_raw.data)
-# kpvtflux = kpvt.magnetic_flux(kpvt.im_raw.data)
-#print(np.nanmax(kpvtarea))
-#print(kpvt.area.nansum())
+kpvt.heliographic(kpvt.im_raw.data)
+kpvt.los_corr(kpvt.im_raw.data)
+kpvt.eoa(kpvt.im_raw.data)
+kpvtflux = kpvt.magnetic_flux(kpvt.im_raw.data)
+print(np.nanmax(kpvt.area))
+print(kpvt.area.shape)
+print(np.nansum(kpvt.area))
+print(np.nanmax(kpvt.mflux_corr))
 
 #SPMG
 # spmg.heliographic(spmg.im_raw.data)
@@ -62,11 +64,11 @@ hmi = CRD('HMI\\hmi.M_720s.20100504_214800_TAI.1.magnetogram.fits')
 # print(spmgarea.nansum())
 
 #HMI
-hmi.heliographic(hmi.im_raw.data)
+#hmi.heliographic(hmi.im_raw.data)
 #hmi.los_corr(hmi.im_raw.data)
-hmiarea = hmi.eoa(hmi.im_raw.data)
+#hmiarea = hmi.eoa(hmi.im_raw.data)
 #hmi.magnetic_flux(hmi.im_raw.data)
-print(np.nansum(hmi.area))
+#print(np.nansum(hmi.area))
 
 
 stop = timeit.default_timer()
