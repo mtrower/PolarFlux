@@ -6,6 +6,7 @@ import sunpy.map
 from sunpy.sun import constants
 from sunpy.sun import sun
 import astropy.units as u
+import kpvt_class
 
 #np.set_printoptions(threshold=np.nan)
 
