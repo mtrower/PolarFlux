@@ -165,6 +165,7 @@ class CRD:
 		calulations.
 		"""
 
+		print("Calculating line of sight magnetic field.")
 		# TODO optimize with saved lath, lonh data
 		if isinstance(args[0], np.ndarray):
 			lonh, lath = np.deg2rad(self.heliographic(args[0]))
@@ -195,12 +196,14 @@ class CRD:
 		at the center of the sun.
 		"""
 
-		#Assume coordinate is in center of pixel.
-		#Information on pixel standard is in this article.
-		#http://www.aanda.org/component/article?access=bibcode&bibcode=&bibcode=2002A%2526A...395.1061GFUL
+		print ("Calculating element of area.")
+		# Assume coordinate is in center of pixel.
+		# Information on pixel standard is in this article.
+		# http://www.aanda.org/component/article?access=bibcode&bibcode=&bibcode=2002A%2526A...395.1061GFUL
 		if isinstance(args[0], np.ndarray):
 			lon, lat = self.heliographic(args[0], corners=True)
 			# Calculating unit vectors of pixel corners for solid angle.
+			# TODO: create unit vector function to help readability
 			r1 = np.array([np.cos(np.deg2rad(lat[0:len(lat) - 1, 0: len(lat) - 1]))*np.cos(np.deg2rad(lon[0:len(lat) - 1, 0: len(lat) - 1])),
 							np.cos(np.deg2rad(lat[0:len(lat) - 1, 0: len(lat) - 1]))*np.sin(np.deg2rad(lon[0:len(lat) - 1, 0: len(lat) - 1])),
 							np.sin(np.deg2rad(lat[0:len(lat) - 1, 0: len(lat) - 1]))])
@@ -264,7 +267,9 @@ class CRD:
 			return np.abs((r**2)*solid_angle)
 
 	def magnetic_flux(self, *args, raw_field=False):
-		""" Takes in coordinates and returns magnetic flux of pixel."""
+		"""Takes in coordinates and returns magnetic flux of pixel."""
+
+		print("Calculating magnetic flux.")
 		# Use existing attributes if saved.
 		if hasattr(self, 'area'):
 			area = self.area
