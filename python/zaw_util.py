@@ -5,6 +5,7 @@ from zaw_coord import CRD
 
 __all__=['date2md', 'md2date', 'CRD_read', 'search_file']
 
+data_root='.'
 
 def date2md(date, instr):
 	#Converts a standard date string into an instrument mission date.
@@ -53,22 +54,22 @@ def CRD_read(date, instr):
 
 def search_file(date, instr):
 	if instr == '512':
-		fn0 = 'H:KPVT'
+		fn0 = data_root + '/KPVT'
 		subdir = str(date.year - 1900) + str(date.month).zfill(2)
 
 		return glob.glob(os.path.join(fn0, subdir, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
 	elif instr == 'spmg':
-		fn0 = 'H:SPMG'
+		fn0 = data_root + '/SPMG'
 		subdir = datestr[2:4] + datestr[5:7]
 
 		return glob.glob(os.path.join(fn0, subdir, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
 	# TODO figure out mdi_datestr nonsense
 	elif instr == 'mdi':
-		fn0 = 'H:MDI'
+		fn0 = data_root + '/MDI'
 		subdir = ''
 
 	elif instr == 'hmi':
-		fn0 = 'H:HMI'
+		fn0 = data_root + '/HMI'
 
 		return glob.glob(os.path.join(fn0, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
 	else:
