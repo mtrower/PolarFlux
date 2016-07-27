@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 from zaw_util import *
+import zaw_util             # for data_root
 import os.path
 import getopt
 import sys
@@ -149,13 +150,15 @@ def parse_args():
     global d1, d2, instr
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "s:e:i:", ["date-start=", "date-end=", "instrument="])
+        opts, args = getopt.getopt(sys.argv[1:], "d:s:e:i:", ["data-root=", "date-start=", "date-end=", "instrument="])
     except getopt.GetoptError as err:
         print(err)
         usage()
         sys.exit(2)
 
     for opt, arg in opts:
+        if opt in ("-d", "--data-root"):
+            zaw_util.data_root = arg
         elif opt in ("-s", "--date-start"):
             d1 = arg
         elif opt in ("-e", "--date-end"):
