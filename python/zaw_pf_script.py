@@ -11,6 +11,12 @@ import pandas as pd
 import datetime as dt
 from zaw_util import *
 import os.path
+import getopt
+import sys
+
+d1 = None       # Start date
+d2 = None       # End date
+instr = None    # Instrument
 
 # This is the container class for the entire segment polar data.
 class PFData:
@@ -136,9 +142,34 @@ def calc_pol(pf_data, mgnt, pole):
 		pf_data['date'] = mgnt.date		
 		return pf_data
 
-d1 = input('Enter starting date: ')
-d2 = input('Enter end date: ')
-instr = input('Enter the instrument: ')
+def usage():
+    print('Usage: zaw_pf_script.py [-d data-root] [-s start-date] [-e end-date] [-i instrument]')
+
+def parse_args():
+    global d1, d2, instr
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "s:e:i:", ["date-start=", "date-end=", "instrument="])
+    except getopt.GetoptError as err:
+        print(err)
+        usage()
+        sys.exit(2)
+
+    for opt, arg in opts:
+        elif opt in ("-s", "--date-start"):
+            d1 = arg
+        elif opt in ("-e", "--date-end"):
+            d2 = arg
+        elif opt in ("-i", "--instrument"):
+            instr = arg
+        else:
+            assert False, "unhandled option"
+
+parse_args()
+
+if    d1 == None:    d1 = input('Enter starting date: ')
+if    d2 == None:    d2 = input('Enter end date: ')
+if instr == None: instr = input('Enter the instrument: ')
 
 # Initialize the segment data first.
 segment = PFData()
