@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 import zaw_util
+from collections import OrderedDict
 import os.path
 import getopt
 import sys
@@ -23,77 +24,37 @@ class PFData:
     pass
 
 # Data dictionary initialization to be stored in a list.
-data0 = {'mdi_i': 0, 'date': '', 'intf_n': np.nan, 'intfc_n': np.nan,
-        'unsflux_n': np.nan, 'unsfluxc_n': np.nan, 'sflux_n': np.nan,
-        'sfluxc_n': np.nan, 'posfluxc_n': np.nan, 'negfluxc_n': np.nan,
-        'vnpc_px_n': np.nan, 'visarea_n': np.nan, 'max_pxflux_n': np.nan,
-        'max_pxf_n': np.nan, 'max_pxfc_n': np.nan, 'swt_n': np.nan,
-        'intf_s': np.nan, 'intfc_s': np.nan, 'unsflux_s': np.nan,
-        'unsfluxc_s': np.nan, 'sflux_s': np.nan, 'sfluxc_s': np.nan,
-        'posfluxc_s': np.nan, 'negfluxc_s': np.nan, 'vnpc_px_s': np.nan,
-        'visarea_s': np.nan, 'max_pxflux_s': np.nan, 'max_pxf_s': np.nan,
-        'max_pxfc_s': np.nan, 'swt_s': np.nan}
+data0 = OrderedDict([('md', 0), ('date', ''), ('intf_n', np.nan),
+        ('intfc_n', np.nan), ('unsflux_n', np.nan), ('unsfluxc_n', np.nan),
+        ('sflux_n', np.nan), ('sfluxc_n', np.nan), ('posfluxc_n', np.nan),
+        ('negfluxc_n', np.nan), ('nvp_px_n', np.nan), ('visarea_n', np.nan), 
+        ('max_pxflux_n', np.nan), ('max_pxf_n', np.nan), ('max_pxfc_n', np.nan),
+        ('swt_n', np.nan), ('intf_s', np.nan), ('intfc_s', np.nan),
+        ('unsflux_s', np.nan), ('unsfluxc_s', np.nan), ('sflux_s', np.nan),
+        ('sfluxc_s', np.nan), ('posfluxc_s', np.nan), ('negfluxc_s', np.nan),
+        ('nvp_px_s', np.nan), ('visarea_s', np.nan), ('max_pxflux_s', np.nan), 
+        ('max_pxf_s', np.nan), ('max_pxfc_s', np.nan), ('swt_s', np.nan)])
 
 def calc_pol(pf_data, mgnt, pole):
     pole = pole.lower()
     swt = 0
-    #TODO: modularize for easier readability
-    if pole == 'north':
-        pc_px_ind = np.where(np.logical_and(np.less(mgnt.rg, mgnt.rsun),
-                             np.greater(mgnt.lath, segment.deg_lim)))
 
-        vpc_px_ind = np.where(np.logical_and(
-            np.logical_and(
-                np.less(mgnt.rg, mgnt.rsun), np.greater(mgnt.lath, segment.deg_lim)),
-            np.isfinite(mgnt.im_raw.data)))
-
-        pc_px_pos = np.where(np.logical_and(
-            np.logical_and(
-                np.less(mgnt.rg, mgnt.rsun), np.greater(mgnt.lath, segment.deg_lim)),
-            np.greater(mgnt.im_corr, 0.0)))
-
-        pc_px_neg = np.where(np.logical_and(
-            np.logical_and(
-                np.less(mgnt.rg, mgnt.rsun), np.greater(mgnt.lath, segment.deg_lim)), 
-            np.less(mgnt.im_corr, 0.0)))
-    else:
-        pc_px_ind = np.where(np.logical_and(np.less(mgnt.rg, mgnt.rsun),
-                             np.less(mgnt.lath, -segment.deg_lim)))
-
-        vpc_px_ind = np.where(np.logical_and(
-            np.logical_and(
-                np.less(mgnt.rg, mgnt.rsun), np.less(mgnt.lath, -segment.deg_lim)),
-            np.isfinite(mgnt.im_raw.data)))
-
-        pc_px_pos = np.where(np.logical_and(
-            np.logical_and(
-                np.less(mgnt.rg, mgnt.rsun), np.less(mgnt.lath, -segment.deg_lim)),
-            np.greater(mgnt.im_corr, 0.0)))
-
-        pc_px_neg = np.where(np.logical_and(
-            np.logical_and(
-                np.less(mgnt.rg, mgnt.rsun), np.less(mgnt.lath, -segment.deg_lim)), 
-            np.less(mgnt.im_corr, 0.0)))
-
+    p_px, vp_px, posp_px, negp_px = indices(mgnt, pole, segment.deg_lim)
+    
     # Search for polarity mixture.
-    if (np.size(pc_px_pos) == 0 or np.size(pc_px_neg) == 0):
-        print ("%s hemisphere has no polarity mixture." % pole)
-        if pole == 'north':
-            swt = 3
-        else:
-            swt = 3
+    if (np.size(posp_px) == 0 or np.size(negp_px) == 0):
+        print ("{} hemisphere has no polarity mixture.".format(pole))
+        swt = 3
 
     # Disregard magnetograms under the tolerance level for valid pixels.
-    if (float(np.size(vpc_px_ind))/float(np.size(pc_px_ind)) < segment.inv_px_tol):
-        print ("{} hemisphere has more than {} %% invalid pixels.".format(pole, 1.0 - (segment.inv_px_tol)*100))
-        if pole == 'north':
-            swt = 2
-        else:
-            swt = 2
+    if (float(np.size(vp_px))/float(np.size(p_px)) < segment.inv_px_tol):
+        print ("{} hemisphere has more than {} %% invalid pixels.". 
+                format(pole, 1.0 - (segment.inv_px_tol)*100))
+        swt = 2
 
     # Return with no data if the two previous cases are true.
     if swt != 0:
-        pf_data['mdi_i'] = mgnt.md
+        pf_data['md'] = mgnt.md
         pf_data['date'] = mgnt.date
         if pole == 'north':
             pf_data['swt_n'] = swt
@@ -103,18 +64,18 @@ def calc_pol(pf_data, mgnt, pole):
         return pf_data
     # Otherwise calculate data from the poles.
     else:
-        intf = np.nanmean(mgnt.im_raw.data[vpc_px_ind])
-        intfc = np.nanmean(mgnt.im_corr[vpc_px_ind])
-        unsflux = np.nansum(np.abs(mgnt.mflux_raw[vpc_px_ind]))
-        unsfluxc = np.nansum(np.abs(mgnt.mflux_corr[vpc_px_ind]))
-        sflux = np.nansum(mgnt.mflux_raw[vpc_px_ind])
-        sfluxc = np.nansum(mgnt.mflux_corr[vpc_px_ind])
-        posfluxc = np.nansum(mgnt.mflux_corr[pc_px_pos])
-        negfluxc = np.nansum(mgnt.mflux_corr[pc_px_neg])
-        visarea = np.nansum(mgnt.area[vpc_px_ind])
-        max_pxflux = np.nanmax(np.abs( mgnt.mflux_corr[vpc_px_ind]))
-        max_pxf = np.nanmax(mgnt.im_raw.data[vpc_px_ind])
-        max_pxfc =  np.nanmax(mgnt.im_corr[vpc_px_ind])
+        intf = np.nanmean(mgnt.im_raw.data[vp_px])
+        intfc = np.nanmean(mgnt.im_corr[vp_px])
+        unsflux = np.nansum(np.abs(mgnt.mflux_raw[vp_px]))
+        unsfluxc = np.nansum(np.abs(mgnt.mflux_corr[vp_px]))
+        sflux = np.nansum(mgnt.mflux_raw[vp_px])
+        sfluxc = np.nansum(mgnt.mflux_corr[vp_px])
+        posfluxc = np.nansum(mgnt.mflux_corr[posp_px])
+        negfluxc = np.nansum(mgnt.mflux_corr[negp_px])
+        visarea = np.nansum(mgnt.area[vp_px])
+        max_pxflux = np.nanmax(np.abs( mgnt.mflux_corr[vp_px]))
+        max_pxf = np.nanmax(mgnt.im_raw.data[vp_px])
+        max_pxfc =  np.nanmax(mgnt.im_corr[vp_px])
 
         # Corrected field might be zero. Replace entries with NaNs.
         if unsfluxc == 0.0:
@@ -128,18 +89,51 @@ def calc_pol(pf_data, mgnt, pole):
         var = {'intf': intf, 'intfc': intfc, 'unsflux': unsflux,
                         'unsfluxc': unsfluxc, 'sflux': sflux,
                         'sfluxc': sfluxc, 'posfluxc': posfluxc,
-                        'negfluxc': negfluxc, 'visarea': visarea,
-                        'max_pxflux': max_pxflux, 'max_pxf': max_pxf,
-                        'max_pxfc': max_pxfc, 'swt': swt}
+                        'negfluxc': negfluxc, 'nvp_px': np.size(vp_px),
+                        'visarea': visarea, 'max_pxflux': max_pxflux,
+                        'max_pxf': max_pxf, 'max_pxfc': max_pxfc, 'swt': swt}
         # Assign data values per north/south pole.
         for x in var.items():
             if pole == 'north':
                 pf_data[x[0] + '_n'] = x[1]
             else:
                 pf_data[x[0] + '_s'] = x[1]
-        pf_data['mdi_i'] = mgnt.md
+        pf_data['md'] = mgnt.md
         pf_data['date'] = mgnt.date     
         return pf_data
+
+def indices(m, pole, dlim):
+    if pole == 'north':
+        pc = np.where(np.logical_and(np.less(m.rg, m.rsun),
+                np.greater(m.lath, dlim)))
+
+        vpc = np.where(np.logical_and(
+                np.logical_and(np.less(m.rg, m.rsun), np.greater(m.lath, dlim)),
+                np.isfinite(m.im_raw.data)))
+
+        pc_pos = np.where(np.logical_and(
+                np.logical_and(np.less(m.rg, m.rsun), np.greater(m.lath, dlim)),
+                np.greater(m.im_corr, 0.0)))
+
+        pc_neg = np.where(np.logical_and(
+                np.logical_and(np.less(m.rg, m.rsun), np.greater(m.lath, dlim)), 
+                np.less(m.im_corr, 0.0)))
+    else:
+        pc = np.where(np.logical_and(np.less(m.rg, m.rsun),
+                np.less(m.lath, -dlim)))
+
+        vpc = np.where(np.logical_and(
+                np.logical_and(np.less(m.rg, m.rsun), np.less(m.lath, -dlim)),
+                np.isfinite(m.im_raw.data)))
+
+        pc_pos = np.where(np.logical_and(
+                np.logical_and(np.less(m.rg, m.rsun), np.less(m.lath, -dlim)),
+                np.greater(m.im_corr, 0.0)))
+
+        pc_neg = np.where(np.logical_and(
+                np.logical_and(np.less(m.rg, m.rsun), np.less(m.lath, -dlim)), 
+                np.less(m.im_corr, 0.0)))
+    return pc, vpc, pc_pos, pc_neg
 
 def usage():
     print('Usage: zaw_pf_script.py [-d data-root] [-s start-date] [-e end-date] [-i instrument]')
@@ -201,6 +195,6 @@ while date_c <= segment.end_date:
     print(data)
     date_c = date_c + dt.timedelta(1)
 
-obj = pd.DataFrame(segment.pf)
+obj = pd.DataFrame(segment.pf, columns=segment.pf[0].keys())
 out_fn = 'PF_{}_{}.csv'.format(segment.start_date.isoformat(), segment.end_date.isoformat())
 obj.to_csv(out_fn)
