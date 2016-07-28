@@ -37,21 +37,11 @@ data0 = OrderedDict([('md', 0), ('date', ''), ('intf_n', np.nan),
 
 def calc_pol(pf_data, mgnt, pole):
     pole = pole.lower()
-    swt = 0
 
     p_px, vp_px, posp_px, negp_px = indices(mgnt, pole, segment.deg_lim)
     
-    # Search for polarity mixture.
-    if (np.size(posp_px) == 0 or np.size(negp_px) == 0):
-        print ("{} hemisphere has no polarity mixture.".format(pole))
-        swt = 3
-
-    # Disregard magnetograms under the tolerance level for valid pixels.
-    if (float(np.size(vp_px))/float(np.size(p_px)) < segment.inv_px_tol):
-        print ("{} hemisphere has more than {} %% invalid pixels.". 
-                format(pole, 1.0 - (segment.inv_px_tol)*100))
-        swt = 2
-
+    swt = validate(p_px, vp_px, posp_px, negp_px)
+    
     # Return with no data if the two previous cases are true.
     if swt != 0:
         pf_data['md'] = mgnt.md
@@ -135,6 +125,20 @@ def indices(m, pole, dlim):
                 np.less(m.im_corr, 0.0)))
     return pc, vpc, pc_pos, pc_neg
 
+def validate(p, vp, pos, neg):
+    # Search for polarity mixture.
+    if (np.size(pos) == 0 or np.size(neg) == 0):
+        print ("{} hemisphere has no polarity mixture.".format(pole))
+        return 3
+
+    # Disregard magnetograms under the tolerance level for valid pixels.
+    if (float(np.size(vp))/float(np.size(p)) < segment.inv_px_tol):
+        print ("{} hemisphere has more than {} %% invalid pixels.". 
+                format(pole, 1.0 - (segment.inv_px_tol)*100))
+        return 2
+
+    return 0
+
 def usage():
     print('Usage: zaw_pf_script.py [-d data-root] [-s start-date] [-e end-date] [-i instrument]')
 
@@ -192,7 +196,6 @@ while date_c <= segment.end_date:
         calc_pol(data, mgnt, 'north')
         calc_pol(data, mgnt, 'south')
         segment.pf.append(data)
-    print(data)
     date_c = date_c + dt.timedelta(1)
 
 obj = pd.DataFrame(segment.pf, columns=segment.pf[0].keys())
