@@ -52,34 +52,45 @@ def CRD_read(date, instr):
     return mgnt
 
 def search_file(date, instr):
-    if instr == '512':
-        fn0 = data_root + '/KPVT'
-        subdir = str(date.year - 1900) + str(date.month).zfill(2)
+    # Set defaults
+    subdir = ''
+    fn0 = instr.upper()
+    filename ='*%s*.fits' % date.strftime('%Y%m%d')
 
-        return glob.glob(os.path.join(fn0, subdir, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
+    # Set overrides
+    if instr == '512':
+        fn0 = 'KPVT'
+        subdir = '%d%02d' % (date.year - 1900, date.month)
+        filename = date.strftime('%Y%m%d') + '*.fits'
 
     elif instr == 'spmg':
-        fn0 = data_root + '/SPMG'
-        subdir = datestr[2:4] + datestr[5:7]
-
-        return glob.glob(os.path.join(fn0, subdir, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
+        subdir = '%d%02d' % (date.year - 1900, date.month)
 
     elif instr == 'mdi':
-        fn0 = data_root + '/MDI'
         md = date2md(date, instr) + 1
-        subdir = str(date.year) + '/fd_M_96m_01d.' + str(md).zfill(6)
+        subdir = os.path.join(
+                str(date.year)
+                , 'fd_M_96m_01d.%06d' % md
+        )
+        filename ='fd_M_96m_01d.%d*.fits' % md
         
-        files = glob.glob(os.path.join(fn0, subdir, 'fd_M_96m_01d.' + str(md) + '*.fits'))
-
-        return mdi_file_choose(files)
-
     elif instr == 'hmi':
-        fn0 = data_root + '/HMI'
-
-        return glob.glob(os.path.join(fn0, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
+        pass
 
     else:
-        return -1
+        raise ValueError('Unrecognized instrument')
+
+    # Execute
+    searchspec = os.path.join(data_root, fn0, subdir, filename)
+    files = glob.glob(searchspec)
+
+    if not files:
+        raise IOError('File not found')
+
+    if instr == 'mdi':
+        return mdi_file_choose(files)
+    else:
+        return files
 
 def mdi_file_choose(f):
     best = None
