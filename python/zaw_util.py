@@ -65,9 +65,9 @@ def search_file(date, instr):
         return glob.glob(os.path.join(fn0, subdir, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
 
     elif instr == 'mdi':
-        fn0 = data_root + '\\MDI'
+        fn0 = data_root + '/MDI'
         md = date2md(date, instr) + 1
-        subdir = str(date.year) + '\\fd_M_96m_01d.' + str(md).zfill(6)
+        subdir = str(date.year) + '/fd_M_96m_01d.' + str(md).zfill(6)
         
         files = glob.glob(os.path.join(fn0, subdir, 'fd_M_96m_01d.' + str(md) + '*.fits'))
 
