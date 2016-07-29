@@ -149,7 +149,7 @@ def parse_args():
         opts, args = getopt.getopt(
                 sys.argv[1:],
                 "d:s:e:i:", 
-                ["data-root=", "date-start=", "date-end=", "instrument="])
+                ["data-root=", "date-start=", "date-end=", "instrument=", "debug"])
     except getopt.GetoptError as err:
         print(err)
         usage()
@@ -164,6 +164,8 @@ def parse_args():
             d2 = arg
         elif opt in ("-i", "--instrument"):
             instr = arg
+        elif opt in ("--debug"):
+            zaw_util.debug = True
         else:
             assert False, "unhandled option"
 

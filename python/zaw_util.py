@@ -4,7 +4,8 @@ import datetime as dt
 from astropy.io import fits
 from zaw_coord import CRD
 
-data_root='.'
+data_root = '.'
+debug = False
 
 def date2md(date, instr):
     #Converts a standard date string into an instrument mission date.
@@ -82,6 +83,8 @@ def search_file(date, instr):
 
     # Execute
     searchspec = os.path.join(data_root, fn0, subdir, filename)
+    debug('searchspec: ' + searchspec)
+
     files = glob.glob(searchspec)
 
     if not files:
@@ -97,7 +100,7 @@ def mdi_file_choose(f):
     ival = 0
     mv = 100000
     for x in f:
-        print (x)
+        debug(x)
         m = fits.open(x)
         try:
             intv = m[0].header['INTERVAL']
@@ -113,6 +116,10 @@ def mdi_file_choose(f):
         except KeyError:
             continue
     if best == None:
-        print(f[-1])
+        debug(f[-1])
         return f[-1]
     return best
+
+def debug(str):
+    if debug:
+        print(str)
