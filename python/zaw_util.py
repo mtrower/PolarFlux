@@ -7,33 +7,25 @@ from zaw_coord import CRD
 data_root = '.'
 debug = False
 
-def date2md(date, instr):
-    #Converts a standard date string into an instrument mission date.
-    if instr == '512':
-        DayOff = dt.date(1970, 1, 1)
-    elif instr == 'spmg':
-        DayOff = dt.date(1990, 1, 1)
+def dateOffset(instr):
+    if instr == 'spmg':
+        year = 1990
     elif instr == 'mdi':
-        DayOff = dt.date(1993, 1, 1)
+        year = 1993
     elif instr == 'hmi':
-        DayOff = dt.date(2009, 1, 1)
+        year = 2009
     else:
-        DayOff = dt.date(1970, 1, 1)
+        year = 1970
     
-    return date.toordinal() - DayOff.toordinal()
+    return dt.date(year, 1, 1)
 
+#Converts a standard date string into an instrument mission date.
+def date2md(date, instr):
+    return date.toordinal() - dateOffset(instr).toordinal()
+
+#Converts an instrument mission date string into a standard date string.
 def md2date(md, instr):
-    #Converts a standard date string into an instrument mission date.
-    if instr == '512':
-        DayOff = dt.date(1970, 1, 1)
-    elif instr == 'spmg':
-        DayOff = dt.date(1990, 1, 1)
-    elif instr == 'mdi':
-        DayOff = dt.date(1993, 1, 1)
-    elif instr == 'hmi':
-        DayOff = dt.date(2009, 1, 1)
-    
-    return dt.fromordinal(md + DayOff.toordinal())
+    return dt.fromordinal(md + dateOffset(instr).toordinal())
 
 def CRD_read(date, instr):
     try:
