@@ -37,7 +37,7 @@ def md2date(md, instr):
 
 def CRD_read(date, instr):
     try:
-        filename = search_file(date, instr)[0]
+        filename = search_file(date, instr)
     except IndexError:
         return -1
 
@@ -93,7 +93,7 @@ def search_file(date, instr):
     if instr == 'mdi':
         return mdi_file_choose(files)
     else:
-        return files
+        return files[-1]
 
 def mdi_file_choose(f):
     best = None
