@@ -75,7 +75,7 @@ def search_file(date, instr):
 
     # Execute
     searchspec = os.path.join(data_root, fn0, subdir, filename)
-    debug('searchspec: ' + searchspec)
+    pdebug('searchspec: ' + searchspec)
 
     files = glob.glob(searchspec)
 
@@ -92,7 +92,7 @@ def mdi_file_choose(f):
     ival = 0
     mv = 100000
     for x in f:     # but try to find a better match
-        debug("mdi_file_choose - option: " + x)
+        pdebug("mdi_file_choose - option: " + x)
         m = fits.open(x)
         try:
             intv = m[0].header['INTERVAL']
@@ -108,9 +108,9 @@ def mdi_file_choose(f):
         except KeyError:
             continue
 
-    debug("mdi_file_choose - selected: " + best)
+    pdebug("mdi_file_choose - selected: " + best)
     return best
 
-def debug(str):
+def pdebug(str):
     if debug:
         print(str)
