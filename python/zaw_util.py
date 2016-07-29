@@ -4,39 +4,32 @@ import datetime as dt
 from astropy.io import fits
 from zaw_coord import CRD
 
-data_root='.'
+data_root = '.'
+debug = False
 
-def date2md(date, instr):
-    #Converts a standard date string into an instrument mission date.
-    if instr == '512':
-        DayOff = dt.date(1970, 1, 1)
-    elif instr == 'spmg':
-        DayOff = dt.date(1990, 1, 1)
+def dateOffset(instr):
+    if instr == 'spmg':
+        year = 1990
     elif instr == 'mdi':
-        DayOff = dt.date(1993, 1, 1)
+        year = 1993
     elif instr == 'hmi':
-        DayOff = dt.date(2009, 1, 1)
+        year = 2009
     else:
-        DayOff = dt.date(1970, 1, 1)
+        year = 1970
     
-    return date.toordinal() - DayOff.toordinal()
+    return dt.date(year, 1, 1)
 
+#Converts a standard date string into an instrument mission date.
+def date2md(date, instr):
+    return date.toordinal() - dateOffset(instr).toordinal()
+
+#Converts an instrument mission date string into a standard date string.
 def md2date(md, instr):
-    #Converts a standard date string into an instrument mission date.
-    if instr == '512':
-        DayOff = dt.date(1970, 1, 1)
-    elif instr == 'spmg':
-        DayOff = dt.date(1990, 1, 1)
-    elif instr == 'mdi':
-        DayOff = dt.date(1993, 1, 1)
-    elif instr == 'hmi':
-        DayOff = dt.date(2009, 1, 1)
-    
-    return dt.fromordinal(md + DayOff.toordinal())
+    return dt.fromordinal(md + dateOffset(instr).toordinal())
 
 def CRD_read(date, instr):
     try:
-        filename = search_file(date, instr)[0]
+        filename = search_file(date, instr)
     except IndexError:
         return -1
 
@@ -52,41 +45,54 @@ def CRD_read(date, instr):
     return mgnt
 
 def search_file(date, instr):
-    if instr == '512':
-        fn0 = data_root + '/KPVT'
-        subdir = str(date.year - 1900) + str(date.month).zfill(2)
+    # Set defaults
+    subdir = ''
+    fn0 = instr.upper()
+    filename ='*%s*.fits' % date.strftime('%Y%m%d')
 
-        return glob.glob(os.path.join(fn0, subdir, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
+    # Set overrides
+    if instr == '512':
+        fn0 = 'KPVT'
+        subdir = '%d%02d' % (date.year - 1900, date.month)
+        filename = date.strftime('%Y%m%d') + '*.fits'
 
     elif instr == 'spmg':
-        fn0 = data_root + '/SPMG'
-        subdir = datestr[2:4] + datestr[5:7]
-
-        return glob.glob(os.path.join(fn0, subdir, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
+        subdir = '%d%02d' % (date.year - 1900, date.month)
 
     elif instr == 'mdi':
-        fn0 = data_root + '\\MDI'
         md = date2md(date, instr) + 1
-        subdir = str(date.year) + '\\fd_M_96m_01d.' + str(md).zfill(6)
+        subdir = os.path.join(
+                str(date.year)
+                , 'fd_M_96m_01d.%06d' % md
+        )
+        filename ='fd_M_96m_01d.%d*.fits' % md
         
-        files = glob.glob(os.path.join(fn0, subdir, 'fd_M_96m_01d.' + str(md) + '*.fits'))
-
-        return mdi_file_choose(files)
-
     elif instr == 'hmi':
-        fn0 = data_root + '/HMI'
-
-        return glob.glob(os.path.join(fn0, '*'+ str(date.year) + str(date.month).zfill(2) + str(date.day).zfill(2) + '*.fits'))
+        pass
 
     else:
-        return -1
+        raise ValueError('Unrecognized instrument')
+
+    # Execute
+    searchspec = os.path.join(data_root, fn0, subdir, filename)
+    debug('searchspec: ' + searchspec)
+
+    files = glob.glob(searchspec)
+
+    if not files:
+        raise IOError('File not found')
+
+    if instr == 'mdi':
+        return mdi_file_choose(files)
+    else:
+        return files[-1]
 
 def mdi_file_choose(f):
     best = None
     ival = 0
     mv = 100000
     for x in f:
-        print (x)
+        debug(x)
         m = fits.open(x)
         try:
             intv = m[0].header['INTERVAL']
@@ -102,6 +108,10 @@ def mdi_file_choose(f):
         except KeyError:
             continue
     if best == None:
-        print(f[-1])
+        debug(f[-1])
         return f[-1]
     return best
+
+def debug(str):
+    if debug:
+        print(str)
