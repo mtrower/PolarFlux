@@ -6,54 +6,58 @@ import timeit
 
 start = timeit.default_timer()
 
-#x = CRD('MDI\\fd_M_96m_01d.1222.0005.fits')
+mdi = CRD('MDI\\fd_M_96m_01d.1222.0005.fits')
 kpvt = CRD('512c_eo000_C1_19771001_2048.fits')
 #spmg = CRD('spmg_eo100_C1_19920421_1700.fits')
 #hmi = CRD('HMI\\hmi.M_720s.20100504_214800_TAI.1.magnetogram.fits')
 
 #Heliographic testing
-# lonh, lath = x.heliographic(x.im_raw.data)
+# lonh, lath = mdi.heliographic(mdi.im_raw.data)
 # print ( "Array Latitude = %s Longitude = %s " %(lath[52,650], lonh[52,650]) )
-# lonh, lath = x.heliographic(52,650)
+# lonh, lath = mdi.heliographic(52,650)
 # print ( "Coordinate Latitude = %s Longitude = %s " %(lath, lonh) )
 
-#x.heliographic(x.im_raw.data)
+#mdi.heliographic(mdi.im_raw.data)
 # print ( "Array Latitude = %s Longitude = %s " %(lath[511,511], lonh[511,511]) )
-# lonh, lath = x.heliographic(511, 511)
+# lonh, lath = mdi.heliographic(511, 511)
 # print ( "Coordinate Latitude = %s Longitude = %s " %(lath, lonh) )
 
 
-#print( sunpy.wcs.convert_hpc_hg(0*x.im_raw.scale[0].value, 0*x.im_raw.scale[1].value, b0_deg = x.im_raw.meta['B0'], l0_deg = x.im_raw.meta['L0']) )
+#print( sunpy.wcs.convert_hpc_hg(0*mdi.im_raw.scale[0].value, 0*mdi.im_raw.scale[1].value, b0_deg = mdi.im_raw.meta['B0'], l0_deg = mdi.im_raw.meta['L0']) )
 
 
 #LOS testing
-# corr = x.los_corr(x.im_raw.data)
+# corr = mdi.los_corr(x.im_raw.data)
 
-#print( "Raw field = %s " %x.im_raw.data[750,750])
+#print( "Raw field = %s " %mdi.im_raw.data[750,750])
 #print( "Corrected field = %s " %corr[750, 750])
 
 #Element of Area testing
-#areapix = x.area(238,238)
+#areapix = mdi.area(238,238)
 #print("%e" %areapix.value)
-#print(x.eoa(52, 650))
-#area = x.eoa(x.im_raw.data)
+#print(mdi.eoa(52, 650))
+#area = mdi.eoa(x.im_raw.data)
 #print(area[52, 650])
 
 #Magnetic flux testing
-# fluxpix = x.magnetic_flux(238, 238)
-# flux = x.magnetic_flux(x.im_raw.data)
+# fluxpix = mdi.magnetic_flux(238, 238)
+# flux = mdi.magnetic_flux(x.im_raw.data)
 # print(flux[750,750])
 #print(area.nansum())
 
+#MDI
+lonh, lath = mdi.heliographic()
+mdi.eoa(mdi.im_raw.data)
+print (np.nansum(mdi.area))
 #KPVT
-kpvt.heliographic(kpvt.im_raw.data)
-kpvt.los_corr(kpvt.im_raw.data)
+#kpvt.heliographic(kpvt.im_raw.data)
+#kpvt.los_corr(kpvt.im_raw.data)
 kpvt.eoa(kpvt.im_raw.data)
-kpvtflux = kpvt.magnetic_flux(kpvt.im_raw.data)
-print(np.nanmax(kpvt.area))
-print(kpvt.area.shape)
+#kpvtflux = kpvt.magnetic_flux(kpvt.im_raw.data)
+#print(np.nanmax(kpvt.area))
+#print(kpvt.area.shape)
 print(np.nansum(kpvt.area))
-print(np.nanmax(kpvt.mflux_corr))
+#print(np.nanmax(kpvt.mflux_corr))
 
 #SPMG
 # spmg.heliographic(spmg.im_raw.data)

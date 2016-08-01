@@ -5,6 +5,8 @@ import numpy as np
 import sunpy.map
 from sunpy.sun import constants
 from sunpy.sun import sun
+import uncertainties.unumpy as unp
+from uncertainties import ufloat
 import astropy.units as u
 import kpvt_class
 
@@ -28,6 +30,9 @@ class CRD:
     def __init__(self, filename):
         """Reads magnetogram as a sunpy.map object."""
         self.im_raw = sunpy.map.Map(filename)
+        #self.im_raw_unc = unp.uarray(self.im_raw.data, np.abs(self.im_raw.data*.10))
+        #print (self.im_raw.data[400, 400])
+        #print (self.im_raw_unc[400, 400])
 
         if self.im_raw.detector == '512':
 
@@ -56,8 +61,8 @@ class CRD:
             self.Y0 = self.im_raw.meta['Y0']
             self.B0 = self.im_raw.meta['B0']
             self.L0 = self.im_raw.meta['L0']
-            self.rsun = self.im_raw.meta['R_SUN']
-            self.dsun = self.im_raw.meta['OBS_DIST']/.0046491
+            self.rsun = self.im_raw.rsun_obs.value
+            self.dsun = self.im_raw.dsun.value
 
         elif self.im_raw.detector == 'HMI':
             self.X0 = self.im_raw.meta['CRPIX1']
@@ -71,7 +76,7 @@ class CRD:
         #TODO
         return None
 
-    def heliographic(self, *args, corners=False):
+    def heliographic(self, *args, array=True, corners=False):
         """Calculate hg coordinates from hpc and returns it.
 
         Can accept either a coordinate pair (x, y) or an entire 2D array.
@@ -89,74 +94,33 @@ class CRD:
         aia.heliographic(320, 288)
         """
 
-        xScl = self.im_raw.scale[0].value
-        yScl = self.im_raw.scale[1].value
-        
+        xScale = self.im_raw.scale[0].value
+        yScale = self.im_raw.scale[1].value
+
         # Check for single coordinate or ndarray object.
-        if isinstance(args[0], np.ndarray):
-            # Retrieve integer dimensions and create arrays holding
-            # x and y coordinates of each pixel
-            xdim = np.int(np.floor(self.im_raw.dimensions[0].value))
-            ydim = np.int(np.floor(self.im_raw.dimensions[1].value))
-            try:
-                xrow = (np.arange(0, xdim) - self.X0 + args[1])*xScl
-                yrow = (np.arange(0, ydim) - self.Y0 + args[2])*yScl
-                self.xg, self.yg = np.meshgrid(xrow, yrow, indexing='xy')
-                self.rg = np.sqrt(self.xg**2 + self.yg**2)
-                x = self.xg
-                y = -self.yg
-            except IndexError:
-                if corners:
-                    xrow = (np.arange(0, xdim + 1) - self.X0 - 0.5)*xScl
-                    yrow = (np.arange(0, ydim + 1) - self.Y0 - 0.5)*yScl
-                else:
-                    xrow = (np.arange(0, xdim) - self.X0)*xScl
-                    yrow = (np.arange(0, ydim) - self.Y0)*yScl
-                self.xg, self.yg = np.meshgrid(xrow, yrow, indexing='xy')
-                self.rg = np.sqrt(self.xg**2 + self.yg**2)
-                x = self.xg
-                y = -self.yg
+        if array:
+            x, y = self._grid(corners)            
         else:
             # Have to switch coordinate conventions because calculations
             # assume standard cartesian whereas python indexing is 
             # [row, column]
-            x = (args[1] - self.X0)*xScl
-            y = (self.Y0 - args[0])*yScl
+            x = (args[1] - self.X0)*xScale
+            y = (self.Y0 - args[0])*yScale
 
         # First convert to heliocentric cartesian coordinates.
         # Calculations taken from sunpy.wcs.
-        x *= np.deg2rad(1)/3600.0
-        y *= np.deg2rad(1)/3600.0
-
-        # cosx = np.cos(x*np.deg2rad(1)/3600.0)
-        # sinx = np.sin(x*np.deg2rad(1)/3600.0)
-        # cosy = np.cos(y*np.deg2rad(1)/3600.0)
-        # siny = np.sin(y*np.deg2rad(1)/3600.0)
-
-        q = self.dsun * np.cos(y) * np.cos(x)
-        distance = q**2 - self.dsun**2 + RSUN_METERS**2
-        distance = q - np.sqrt(distance)
-
-        rx = distance * np.cos(y) * np.sin(x)
-        ry = distance * np.sin(y)
-        rz = np.sqrt(RSUN_METERS**2 - rx**2 - ry**2)
+        rx, ry, rz = self._hpc_hcc(x, y)
 
         # Now convert to heliographic coordinates.
-        cosb = np.cos(np.deg2rad(self.B0))
-        sinb = np.sin(np.deg2rad(self.B0))
-
-        hecr = np.sqrt(rx**2 + ry**2 + rz**2)
-        hgln = np.arctan2(rx, rz*cosb - ry*sinb) \
-               + np.deg2rad(self.L0)
-        hglt = np.arcsin((ry * cosb + rz * sinb)/hecr)
+        lonh, lath = self._hcc_hg(rx, ry, rz)
         # Only add the instance attribute if it doesn't exist.
-        if isinstance(args[0], np.ndarray) and not hasattr(self, 'lonh'):
-            self.lonh = np.rad2deg(hgln)
-            self.lath = np.rad2deg(hglt)
+        if array and not hasattr(self, 'lonh') and not corners:
+            self.lonh = lonh
+            self.lath = lath
 
-        return np.rad2deg(hgln), np.rad2deg(hglt)
+        return lonh, lath
 
-    def los_corr(self, *args):
+    def los_corr(self, *args, array=True):
         """Takes in coordinates and returns corrected magnetic field.
 
         Applies the dot product between the observers unit vector and
@@ -166,8 +130,7 @@ class CRD:
         """
 
         print("Calculating line of sight magnetic field.")
-        # TODO optimize with saved lath, lonh data
-        if isinstance(args[0], np.ndarray):
+        if array:
             try:
                 lonh, lath = np.deg2rad(self.lonh), np.deg2rad(self.lath)
             except AttributeError:
@@ -175,11 +138,11 @@ class CRD:
         else:
             lonh, lath = np.deg2rad(self.heliographic(args[0], args[1]))
 
-        B0 = np.deg2rad(self.B0)
-        L0 = np.deg2rad(self.L0)
-        Xobs = np.cos(B0)*np.cos(L0)
-        Yobs = np.cos(B0)*np.sin(L0)
-        Zobs = np.sin(B0)
+        B0 = ufloat(self.B0, .5)*np.pi/180
+        L0 = ufloat(self.L0, .5)*np.pi/180
+        Xobs = unp.cos(B0)*unp.cos(L0)
+        Yobs = unp.cos(B0)*unp.sin(L0)
+        Zobs = unp.sin(B0)
 
         corr_factor = (np.cos(lath)*np.cos(lonh)*Xobs
                        + np.cos(lath)*np.sin(lonh)*Yobs
@@ -207,15 +170,13 @@ class CRD:
         # http://www.aanda.org/component/article?access=bibcode&bibcode=&bibcode=2002A%2526A...395.1061GFUL
         if isinstance(args[0], np.ndarray):
             lon, lat = self.heliographic(args[0], corners=True)
-            print (np.nanmax(lon))
-
             lon = np.deg2rad(lon)
             lat = np.deg2rad(lat)
             # Calculating unit vectors of pixel corners for solid angle.
-            r1 = spherical_to_cartesian(lon, lat, 0, 0)
-            r2 = spherical_to_cartesian(lon, lat, 1, 0)
-            r3 = spherical_to_cartesian(lon, lat, 1, 1)
-            r4 = spherical_to_cartesian(lon, lat, 0, 1)
+            r1 = self._spherical_to_cartesian(lon, lat, 0, 0)
+            r2 = self._spherical_to_cartesian(lon, lat, 1, 0)
+            r3 = self._spherical_to_cartesian(lon, lat, 1, 1)
+            r4 = self._spherical_to_cartesian(lon, lat, 0, 1)
 
         else:
             x = args[0]
@@ -246,12 +207,12 @@ class CRD:
         # See http://planetmath.org/solidangleofrectangularpyramid
         cross1 = np.cross(r1, r2, axis=0)
         cross2 = np.cross(r3, r4, axis=0)
-        numerator1 = dot(cross1, r3)
-        numerator2 = dot(cross2, r1)
+        numerator1 = self._dot(cross1, r3)
+        numerator2 = self._dot(cross2, r1)
         solid_angle1 = 2*np.arctan2(numerator1,
-                        (dot(r1, r2) + dot(r2, r3) + dot(r3, r1) + 1))
+                        (self._dot(r1, r2) + self._dot(r2, r3) + self._dot(r3, r1) + 1))
         solid_angle2 = 2*np.arctan2(numerator2, 
-                        (dot(r3, r4) + dot(r4, r1) + dot(r3, r1) + 1))
+                        (self._dot(r3, r4) + self._dot(r4, r1) + self._dot(r3, r1) + 1))
         solid_angle = solid_angle1 + solid_angle2
 
         r = RSUN_METERS*100 # Convert to centimeters
@@ -286,17 +247,67 @@ class CRD:
             if isinstance(args[0], np.ndarray) and not hasattr(self, 'mflux_corr'):
                 self.mflux_corr = area*field
             return self.mflux_corr
+    
+    def _grid(self, corners=False):
+        #TODO: docstrings
+        # Retrieve integer dimensions and create arrays holding
+        # x and y coordinates of each pixel
+        xDim = np.int(np.floor(self.im_raw.dimensions[0].value))
+        yDim = np.int(np.floor(self.im_raw.dimensions[1].value))
+        xScale = self.im_raw.scale[0].value
+        yScale = self.im_raw.scale[1].value
 
-def dot(a, b):
-    return  np.array(a[0]*b[0] + a[1]*b[1] + a[2]*b[2])
+        if corners:
+            xRow = (np.arange(0, xDim + 1) - self.X0 - 0.5)*xScale
+            yRow = (np.arange(0, yDim + 1) - self.Y0 - 0.5)*yScale
+        else:
+            xRow = (np.arange(0, xDim) - self.X0)*xScale
+            yRow = (np.arange(0, yDim) - self.Y0)*yScale
+        
+        self.xg, self.yg = np.meshgrid(xRow, yRow, indexing='xy')
+        self.rg = np.sqrt(self.xg**2 + self.yg**2)
 
-def spherical_to_cartesian(lon, lat, i, j):
-    coslat = np.cos(lat)
-    coslon = np.cos(lon)
-    sinlat = np.sin(lat)
-    sinlon = np.sin(lon)
-    l = len(lat)
-    r = np.array([coslat[i:l - 1 + i, j:l - 1 + j]*coslon[i:l - 1 + i, j:l - 1 + j],
-                    coslat[i:l - 1 + i, j:l - 1 + j]*sinlon[i:l - 1 + i, j:l - 1 + j],
-                    sinlat[i:l - 1 + i, j:l - 1 + j]])
-    return r
+        return self.xg, -self.yg
+
+    def _hpc_hcc(self, x, y):
+        #TODO: docstring
+        x *= np.deg2rad(1)/3600.0
+        y *= np.deg2rad(1)/3600.0
+
+        q = self.dsun * np.cos(y) * np.cos(x)
+        distance = q**2 - self.dsun**2 + RSUN_METERS**2
+        distance = q - np.sqrt(distance)
+
+        rx = distance * np.cos(y) * np.sin(x)
+        ry = distance * np.sin(y)
+        rz = np.sqrt(RSUN_METERS**2 - rx**2 - ry**2)
+
+        return rx, ry, rz
+
+    def _hcc_hg(self, x, y, z) :
+        #TODO: docstring
+        cosb = np.cos(np.deg2rad(self.B0))
+        sinb = np.sin(np.deg2rad(self.B0))
+
+        hecr = np.sqrt(x**2 + y**2 + z**2)
+        hgln = np.arctan2(x, z*cosb - y*sinb) \
+               + np.deg2rad(self.L0)
+        hglt = np.arcsin((y * cosb + z * sinb)/hecr)
+
+        return np.rad2deg(hgln), np.rad2deg(hglt)
+
+    def _dot(self, a, b):
+        # TODO docstring
+        return  np.array(a[0]*b[0] + a[1]*b[1] + a[2]*b[2])
+
+    def _spherical_to_cartesian(self, lon, lat, i, j):
+        # TODO docstring
+        coslat = np.cos(lat)
+        coslon = np.cos(lon)
+        sinlat = np.sin(lat)
+        sinlon = np.sin(lon)
+        l = len(lat)
+        r = np.array([coslat[i:l - 1 + i, j:l - 1 + j]*coslon[i:l - 1 + i, j:l - 1 + j],
+                        coslat[i:l - 1 + i, j:l - 1 + j]*sinlon[i:l - 1 + i, j:l - 1 + j],
+                        sinlat[i:l - 1 + i, j:l - 1 + j]])
+        return r
