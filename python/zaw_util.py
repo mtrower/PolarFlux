@@ -36,9 +36,9 @@ def CRD_read(date, instr):
     mgnt = CRD(filename)
     if mgnt == -1:
         return -1
-    mgnt.heliographic(mgnt.im_raw.data)
-    mgnt.magnetic_flux(mgnt.im_raw.data)
-    mgnt.magnetic_flux(mgnt.im_raw.data, raw_field=True)
+    mgnt.heliographic()
+    mgnt.magnetic_flux()
+    mgnt.magnetic_flux(raw_field=True)
     mgnt.date = date
     mgnt.md = date2md(date, instr)
 

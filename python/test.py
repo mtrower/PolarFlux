@@ -2,6 +2,7 @@ from zaw_coord import CRD
 import kpvt_class
 #import sunpy.wcs
 import numpy as np
+import uncertainties.unumpy as unp
 import timeit
 
 start = timeit.default_timer()
@@ -47,16 +48,34 @@ kpvt = CRD('512c_eo000_C1_19771001_2048.fits')
 
 #MDI
 lonh, lath = mdi.heliographic()
-mdi.eoa(mdi.im_raw.data)
+mdi.eoa()
+mdi.magnetic_flux(unc=True)
+mdi.mflux_corr_unc
+vpc = np.where(np.logical_and(np.logical_and(np.logical_and(np.less(mdi.rg, mdi.rsun), np.greater(mdi.lath, 70.0)),np.isfinite(unp.nominal_values(mdi.im_corr_unc))),np.isfinite(mdi.area)))
+print (vpc)
+print( "Polar sum")
+print( np.nansum(mdi.mflux_corr_unc[vpc]))
+print("Raw fields")
+print(mdi.im_raw_unc[vpc])
+print("Corrected fields")
+print(mdi.im_corr_unc[vpc])
+print("Area")
+print(mdi.area[vpc])
+print("Corrected Flux")
+print(mdi.mflux_corr_unc[vpc])
+
 print (np.nansum(mdi.area))
+
+
+
 #KPVT
 #kpvt.heliographic(kpvt.im_raw.data)
 #kpvt.los_corr(kpvt.im_raw.data)
-kpvt.eoa(kpvt.im_raw.data)
+#kpvt.eoa(kpvt.im_raw.data)
 #kpvtflux = kpvt.magnetic_flux(kpvt.im_raw.data)
 #print(np.nanmax(kpvt.area))
 #print(kpvt.area.shape)
-print(np.nansum(kpvt.area))
+#print(np.nansum(kpvt.area))
 #print(np.nanmax(kpvt.mflux_corr))
 
 #SPMG
