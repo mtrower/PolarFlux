@@ -30,8 +30,10 @@ class CRD:
     def __init__(self, filename):
         """Reads magnetogram as a sunpy.map object."""
         self.im_raw = sunpy.map.Map(filename)
-        self.im_raw_unc = unp.uarray(self.im_raw.data, np.abs(self.im_raw.data*.10))
-        
+        #self.im_raw_unc = unp.uarray(self.im_raw.data, np.abs(self.im_raw.data*.10))
+        #print (self.im_raw.data[400, 400])
+        #print (self.im_raw_unc[400, 400])
+
         if self.im_raw.detector == '512':
 
             # Define center of sun and location of detector.
@@ -103,7 +105,7 @@ class CRD:
             # assume standard cartesian whereas python indexing is 
             # [row, column]
             x = (args[1] - self.X0)*xScale
-            y = (args[0] - self.Y0)*yScale
+            y = (self.Y0 - args[0])*yScale
 
         # First convert to heliocentric cartesian coordinates.
         # Calculations taken from sunpy.wcs.
@@ -127,49 +129,16 @@ class CRD:
         calulations.
         """
 
-        print("Applying line of sight magnetic field corrections.")
+        print("Calculating line of sight magnetic field.")
         if array:
             try:
                 lonh, lath = np.deg2rad(self.lonh), np.deg2rad(self.lath)
             except AttributeError:
-                lonh, lath = np.deg2rad(self.heliographic())
+                lonh, lath = np.deg2rad(self.heliographic(args[0]))
         else:
             lonh, lath = np.deg2rad(self.heliographic(args[0], args[1]))
 
-        B0 = np.deg2rad(self.B0)
-        L0 = np.deg2rad(self.L0)
-        Xobs = np.cos(B0)*np.cos(L0)
-        Yobs = np.cos(B0)*np.sin(L0)
-        Zobs = np.sin(B0)
-
-        corr_factor = (np.cos(lath)*np.cos(lonh)*Xobs
-                       + np.cos(lath)*np.sin(lonh)*Yobs
-                       + np.sin(lath)*Zobs)
-        if array:
-            self.im_corr = self.im_raw.data/corr_factor
-            return self.im_corr
-        else:
-            return self.im_raw.data[args[0], args[1]]/corr_factor
-
-    def los_corr_unc(self, *args, array=True):
-        """Takes in coordinates and returns corrected magnetic field.
-
-        Applies the dot product between the observers unit vector and
-        the heliographic radial vector to get the true magnitude of 
-        the magnetic field vector. See geometric projection for
-        calulations.
-        """
-
-        print("Applying line of sight magnetic field corrections.")
-        if array:
-            try:
-                lonh, lath = np.deg2rad(self.lonh), np.deg2rad(self.lath)
-            except AttributeError:
-                lonh, lath = np.deg2rad(self.heliographic())
-        else:
-            lonh, lath = np.deg2rad(self.heliographic(args[0], args[1]))
-
-        B0 = ufloat(self.B0, .5)*np.pi/180 
+        B0 = ufloat(self.B0, .5)*np.pi/180
         L0 = ufloat(self.L0, .5)*np.pi/180
         Xobs = unp.cos(B0)*unp.cos(L0)
         Yobs = unp.cos(B0)*unp.sin(L0)
@@ -178,13 +147,13 @@ class CRD:
         corr_factor = (np.cos(lath)*np.cos(lonh)*Xobs
                        + np.cos(lath)*np.sin(lonh)*Yobs
                        + np.sin(lath)*Zobs)
-        if array:
-            self.im_corr_unc = self.im_raw_unc/corr_factor
-            return self.im_corr_unc
+        if isinstance(args[0], np.ndarray):
+            self.im_corr = self.im_raw.data/corr_factor
+            return self.im_corr
         else:
             return self.im_raw.data[args[0], args[1]]/corr_factor
 
-    def eoa(self, *args, array=True):
+    def eoa(self, *args):
         """ Takes in coordinates and returns the area of pixels on sun.
 
         Each pixel is projected onto the sun, and therefore pixels close to
@@ -199,8 +168,8 @@ class CRD:
         # Assume coordinate is in center of pixel.
         # Information on pixel standard is in this article.
         # http://www.aanda.org/component/article?access=bibcode&bibcode=&bibcode=2002A%2526A...395.1061GFUL
-        if array:
-            lon, lat = self.heliographic(corners=True)
+        if isinstance(args[0], np.ndarray):
+            lon, lat = self.heliographic(args[0], corners=True)
             lon = np.deg2rad(lon)
             lat = np.deg2rad(lat)
             # Calculating unit vectors of pixel corners for solid angle.
@@ -247,7 +216,7 @@ class CRD:
         solid_angle = solid_angle1 + solid_angle2
 
         r = RSUN_METERS*100 # Convert to centimeters
-        if array:
+        if isinstance(args[0], np.ndarray):
             self.area = np.abs((r**2)*solid_angle)
             ind = np.where(self.rg[1:len(self.rg)-1, 1:len(self.rg)-1] > self.rsun)
             self.area[ind] = np.nan
@@ -255,7 +224,7 @@ class CRD:
         else:
             return np.abs((r**2)*solid_angle)
 
-    def magnetic_flux(self, *args, array=True, unc=False, raw_field=False):
+    def magnetic_flux(self, *args, raw_field=False):
         """Takes in coordinates and returns magnetic flux of pixel."""
 
         print("Calculating magnetic flux.")
@@ -265,34 +234,19 @@ class CRD:
         else:   
             area = self.eoa(*args)
 
-        if unc:
-            if raw_field:
-                field = self.im_raw_unc
-                if array and not hasattr(self, 'mflux_raw_unc'):
-                    self.mflux_raw_unc = area*field
-                return self.mflux_raw_unc
-            else:
-                if not hasattr(self, 'im_corr'):
-                    field = self.los_corr_unc()
-                else:
-                    field = self.im_corr_unc
-                if array and not hasattr(self, 'mflux_corr'):
-                    self.mflux_corr_unc = area*field
-                return self.mflux_corr_unc
+        if raw_field:
+            field = self.im_raw.data
+            if isinstance(args[0], np.ndarray) and not hasattr(self, 'mflux_raw'):
+                self.mflux_raw = area*field
+            return self.mflux_raw
         else:
-            if raw_field:
-                field = self.im_raw.data
-                if isinstance(args[0], np.ndarray) and not hasattr(self, 'mflux_raw'):
-                    self.mflux_raw = area*field
-                return self.mflux_raw
+            if not hasattr(self, 'im_corr'):
+                field = self.los_corr(self.im_raw.data)
             else:
-                if not hasattr(self, 'im_corr'):
-                    field = self.los_corr(self.im_raw.data)
-                else:
-                    field = self.im_corr
-                if isinstance(args[0], np.ndarray) and not hasattr(self, 'mflux_corr'):
-                    self.mflux_corr = area*field
-                return self.mflux_corr
+                field = self.im_corr
+            if isinstance(args[0], np.ndarray) and not hasattr(self, 'mflux_corr'):
+                self.mflux_corr = area*field
+            return self.mflux_corr
     
     def _grid(self, corners=False):
         #TODO: docstrings
@@ -306,18 +260,14 @@ class CRD:
         if corners:
             xRow = (np.arange(0, xDim + 1) - self.X0 - 0.5)*xScale
             yRow = (np.arange(0, yDim + 1) - self.Y0 - 0.5)*yScale
-            xg, yg = np.meshgrid(xRow, yRow, indexing='xy')
-            rg = np.sqrt(xg**2 + yg**2)
         else:
             xRow = (np.arange(0, xDim) - self.X0)*xScale
             yRow = (np.arange(0, yDim) - self.Y0)*yScale
-            self.xg, self.yg = np.meshgrid(xRow, yRow, indexing='xy')
-            self.rg = np.sqrt(self.xg**2 + self.yg**2)
-            xg = self.xg
-            yg = self.yg
         
+        self.xg, self.yg = np.meshgrid(xRow, yRow, indexing='xy')
+        self.rg = np.sqrt(self.xg**2 + self.yg**2)
 
-        return xg, yg
+        return self.xg, -self.yg
 
     def _hpc_hcc(self, x, y):
         #TODO: docstring
