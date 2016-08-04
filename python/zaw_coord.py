@@ -5,6 +5,9 @@ import numpy as np
 import sunpy.map
 from sunpy.sun import constants
 from sunpy.sun import sun
+import uncertainties.unumpy as unp
+from uncertainties.umath import *
+from uncertainties import ufloat
 import astropy.units as u
 import kpvt_class
 
@@ -19,13 +22,14 @@ class CRD:
 
     """
 
-    RSUN_METERS = sun.constants.radius.si.value
+    RSUN_METERS = ufloat(sun.constants.radius.si.value, 26000.0)
     DSUN_METERS = sun.constants.au.si.value
 
     
     def __init__(self, filename):
         """Reads magnetogram as a sunpy.map object."""
         self.im_raw = sunpy.map.Map(filename)
+        self.im_raw_u = unp.uarray(self.im.data, np.abs(self.im.data)*.10)
 
         if self.im_raw.detector == '512':
 
