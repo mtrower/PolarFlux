@@ -154,6 +154,8 @@ class CRD:
         corr_factor = (coslat*coslon*Xobs + coslat*sinlon*Yobs + sinlat*Zobs)
         if array:
             self.im_corr = self.im_raw.data/corr_factor
+            bad_ind = np.where(self.rg > self.rsun*np.sin(75.0*np.pi/180))
+            self.im_corr[bad_ind] = np.nan
             return
         else:
             return self.im_raw.data[args[0], args[1]]/corr_factor
