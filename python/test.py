@@ -46,8 +46,8 @@ kpvt = CRD('512c_eo000_C1_19771001_2048.fits')
 #print(area.nansum())
 
 #MDI
-lonh, lath = mdi.heliographic()
-mdi.eoa(mdi.im_raw.data)
+mdi.heliographic()
+mdi.eoa()
 print (np.nansum(mdi.area))
 #KPVT
 #kpvt.heliographic(kpvt.im_raw.data)

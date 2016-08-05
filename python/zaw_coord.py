@@ -22,14 +22,14 @@ class CRD:
 
     """
 
-    RSUN_METERS = ufloat(sun.constants.radius.si.value, 26000.0)
+    RSUN_METERS = sun.constants.radius.si.value
     DSUN_METERS = sun.constants.au.si.value
 
     
     def __init__(self, filename):
         """Reads magnetogram as a sunpy.map object."""
         self.im_raw = sunpy.map.Map(filename)
-        self.im_raw_u = unp.uarray(self.im.data, np.abs(self.im.data)*.10)
+        self.im_raw_u = np.array(np.abs(self.im_raw.data)*.05)
 
         if self.im_raw.detector == '512':
 
@@ -38,6 +38,8 @@ class CRD:
             self.Y0 = self.im_raw.meta['CRPIX2A']
             self.B0 = self.im_raw.meta['B0']
             self.L0 = self.im_raw.meta['L0']
+            self.xScale = self.im_raw.scale[0].value
+            self.yScale = self.im_raw.scale[1].value
             self.rsun = self.im_raw.rsun_obs.value
             self.dsun = self.DSUN_METERS
 
@@ -48,6 +50,8 @@ class CRD:
             self.Y0 = self.im_raw.meta['CRPIX2A']
             self.B0 = self.im_raw.meta['B0']
             self.L0 = self.im_raw.meta['L0']
+            self.xScale = self.im_raw.scale[0].value
+            self.yScale = self.im_raw.scale[1].value
             self.rsun = self.im_raw.rsun_obs.value / self.im_raw.meta['SCALE']
             self.dsun = self.DSUN_METERS
 
@@ -58,14 +62,20 @@ class CRD:
             self.Y0 = self.im_raw.meta['Y0']
             self.B0 = self.im_raw.meta['B0']
             self.L0 = self.im_raw.meta['L0']
+            self.xScale = 1.982
+            self.yScale = 1.982
             self.rsun = self.im_raw.rsun_obs.value
             self.dsun = self.im_raw.dsun.value
+            if self.im_raw.meta['p_angle'] == 180.0:
+                self.im_raw.rotate(180)
 
         elif self.im_raw.detector == 'HMI':
             self.X0 = self.im_raw.meta['CRPIX1']
             self.Y0 = self.im_raw.meta['CRPIX2']
             self.B0 = self.im_raw.meta['CRLT_OBS']
             self.L0 = self.im_raw.meta['CRLN_OBS']
+            self.xScale = self.im_raw.scale[0].value
+            self.yScale = self.im_raw.scale[1].value
             self.rsun = self.im_raw.rsun_obs.value
             self.dsun = self.im_raw.dsun.value
             
@@ -93,8 +103,8 @@ class CRD:
         coordinate and array calculations [row, column].
 
         Examples: 
-        lath, lonh = kpvt.heliographic(kpvt.im_raw.data)
-        aia.heliographic(320, 288)
+        lath, lonh = kpvt.heliographic()
+        aia.heliographic(320, 288, array=False)
         """
 
         # Check for single coordinate or ndarray object.
@@ -132,22 +142,22 @@ class CRD:
         calulations.
         """
 
-        print("Calculating line of sight magnetic field.")
+        print("Correcting line of sight magnetic field.")
         if array:
             try:
                 lonh, lath = np.deg2rad(self.lonh), np.deg2rad(self.lath)
             except AttributeError:
                 self.heliographic()
-                lonh, lath = np.deg2rad(self.lonh), np.deg2rad(self.lath)
+                lonh, lath = self.lonh*np.pi/180, self.lath*np.pi/180
         else:
             lonh, lath = np.deg2rad(self.heliographic(args[0], args[1]))
 
-        B0 = np.deg2rad(self.B0)
-        L0 = np.deg2rad(self.L0)
+        B0 = ufloat(self.B0, np.abs(self.B0)*.05)*np.pi/180
+        L0 = ufloat(self.L0, np.abs(self.L0)*.05)*np.pi/180
 
-        Xobs = np.cos(B0)*np.cos(L0)
-        Yobs = np.cos(B0)*np.sin(L0)
-        Zobs = np.sin(B0)
+        Xobs = cos(B0)*cos(L0)
+        Yobs = cos(B0)*sin(L0)
+        Zobs = sin(B0)
 
         coslat = np.cos(lath)
         coslon = np.cos(lonh)
@@ -155,9 +165,11 @@ class CRD:
         sinlon = np.sin(lonh)
 
 
-        corr_factor = (coslat*coslon*Xobs + coslat*sinlon*Yobs + sinlat*Zobs)
+        corr_factor = (coslat*coslon*Xobs.n + coslat*sinlon*Yobs.n + sinlat*Zobs.n)
+        corr_factor_u = np.sqrt((coslat*coslon*Xobs.s)**2 + (coslat*sinlon*Yobs.s)**2 + (sinlat*Zobs.s)**2)
         if array:
             self.im_corr = self.im_raw.data/corr_factor
+            self.im_corr_u = self.im_raw.
             bad_ind = np.where(self.rg > self.rsun*np.sin(75.0*np.pi/180))
             self.im_corr[bad_ind] = np.nan
             return
@@ -239,7 +251,6 @@ class CRD:
 
     def magnetic_flux(self, *args, array=True, raw_field=False):
         """Takes in coordinates and returns magnetic flux of pixel."""
-
         if array:
             try:
                 area = self.area
@@ -277,15 +288,13 @@ class CRD:
         # x and y coordinates of each pixel
         xDim = np.int(np.floor(self.im_raw.dimensions[0].value))
         yDim = np.int(np.floor(self.im_raw.dimensions[1].value))
-        xScale = self.im_raw.scale[0].value
-        yScale = self.im_raw.scale[1].value
-
+        
         if corners:
-            xRow = (np.arange(0, xDim + 1) - self.X0 - 0.5)*xScale
-            yRow = (np.arange(0, yDim + 1) - self.Y0 - 0.5)*yScale
+            xRow = (np.arange(0, xDim + 1) - self.X0 - 0.5)*self.xScale
+            yRow = (np.arange(0, yDim + 1) - self.Y0 - 0.5)*self.yScale
         else:
-            xRow = (np.arange(0, xDim) - self.X0)*xScale
-            yRow = (np.arange(0, yDim) - self.Y0)*yScale
+            xRow = (np.arange(0, xDim) - self.X0)*self.xScale
+            yRow = (np.arange(0, yDim) - self.Y0)*self.yScale
         
         self.xg, self.yg = np.meshgrid(xRow, yRow, indexing='xy')
         self.rg = np.sqrt(self.xg**2 + self.yg**2)
@@ -304,6 +313,7 @@ class CRD:
 
         q = self.dsun * np.cos(y) * np.cos(x)
         distance = q**2 - self.dsun**2 + self.RSUN_METERS**2
+        
         distance = q - np.sqrt(distance)
 
         rx = distance * np.cos(y) * np.sin(x)
@@ -325,10 +335,11 @@ class CRD:
         sinb = np.sin(np.deg2rad(self.B0))
 
         hecr = np.sqrt(x**2 + y**2 + z**2)
-        hgln = np.arctan2(x, z*cosb - y*sinb) + np.deg2rad(self.L0)
+        hgln = np.arctan2(x, z*cosb - y*sinb) \
+                + np.deg2rad(self.L0)
         hglt = np.arcsin((y * cosb + z * sinb)/hecr)
 
-        return np.rad2deg(hgln), np.rad2deg(hglt)
+        return hgln*180/np.pi, hglt*180/np.pi
 
     def _dot(self, a, b):
         """Vectorized version of the dot product of two arrays.
