@@ -5,9 +5,7 @@ import numpy as np
 import sunpy.map
 from sunpy.sun import constants
 from sunpy.sun import sun
-import uncertainties.unumpy as unp
-from uncertainties.umath import *
-from uncertainties import ufloat
+from uncertainty import Measurement as M
 import astropy.units as u
 import kpvt_class
 
@@ -29,7 +27,7 @@ class CRD:
     def __init__(self, filename):
         """Reads magnetogram as a sunpy.map object."""
         self.im_raw = sunpy.map.Map(filename)
-        self.im_raw_u = np.array(np.abs(self.im_raw.data)*.05)
+        self.im_raw_u = M(self.im_raw.data, np.abs(self.im_raw.data)*.05)
 
         if self.im_raw.detector == '512':
 
@@ -152,26 +150,22 @@ class CRD:
         else:
             lonh, lath = np.deg2rad(self.heliographic(args[0], args[1]))
 
-        B0 = ufloat(self.B0, np.abs(self.B0)*.05)*np.pi/180
-        L0 = ufloat(self.L0, np.abs(self.L0)*.05)*np.pi/180
+        B0 = M(self.B0, np.abs(self.B0)*.05)*np.pi/180
+        L0 = M(self.L0, np.abs(self.L0)*.05)*np.pi/180
 
-        Xobs = cos(B0)*cos(L0)
-        Yobs = cos(B0)*sin(L0)
-        Zobs = sin(B0)
+        Xobs = M.cos(B0)*M.cos(L0)
+        Yobs = M.cos(B0)*M.sin(L0)
+        Zobs = M.sin(B0)
 
-        coslat = np.cos(lath)
-        coslon = np.cos(lonh)
-        sinlat = np.sin(lath)
-        sinlon = np.sin(lonh)
+        corr_factor = (np.cos(lath)*np.cos(lonh)*Xobs
+                + np.cos(lath)*np.sin(lonh)*Yobs
+                + np.sin(lath)*Zobs)
 
-
-        corr_factor = (coslat*coslon*Xobs.n + coslat*sinlon*Yobs.n + sinlat*Zobs.n)
-        corr_factor_u = np.sqrt((coslat*coslon*Xobs.s)**2 + (coslat*sinlon*Yobs.s)**2 + (sinlat*Zobs.s)**2)
         if array:
-            self.im_corr = self.im_raw.data/corr_factor
-            self.im_corr_u = self.im_raw.
+            self.im_corr_u = self.im_raw_u/corr_factor
             bad_ind = np.where(self.rg > self.rsun*np.sin(75.0*np.pi/180))
-            self.im_corr[bad_ind] = np.nan
+            self.im_corr_u.v[bad_ind] = np.nan
+            self.im_corr_u.u[bad_ind] = np.nan
             return
         else:
             return self.im_raw.data[args[0], args[1]]/corr_factor
@@ -292,14 +286,18 @@ class CRD:
         if corners:
             xRow = (np.arange(0, xDim + 1) - self.X0 - 0.5)*self.xScale
             yRow = (np.arange(0, yDim + 1) - self.Y0 - 0.5)*self.yScale
+            xg, yg = np.meshgrid(xRow, yRow, indexing='xy')
+            rg = np.sqrt(xg**2 + yg**2)
         else:
             xRow = (np.arange(0, xDim) - self.X0)*self.xScale
             yRow = (np.arange(0, yDim) - self.Y0)*self.yScale
-        
-        self.xg, self.yg = np.meshgrid(xRow, yRow, indexing='xy')
-        self.rg = np.sqrt(self.xg**2 + self.yg**2)
+            xg, yg = np.meshgrid(xRow, yRow, indexing='xy')
+            rg = np.sqrt(xg**2 + yg**2)
+            self.xg = xg
+            self.yg = yg
+            self.rg = rg
 
-        return self.xg, self.yg
+        return xg, yg
 
     def _hpc_hcc(self, x, y):
         """Converts hpc coordinates to hcc coordinates. 
