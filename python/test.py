@@ -1,7 +1,6 @@
-from zaw_coord import CRD
+from zaw_coord2 import CRD
 import kpvt_class
 #import sunpy.wcs
-from uncertainty import Measurement as M
 import numpy as np
 import timeit
 
@@ -48,6 +47,7 @@ mdi = CRD('MDI\\fd_M_96m_01d.1222.0005.fits')
 
 #MDI
 mdi.heliographic()
+print(mdi.lonh[996,506])
 mdi.eoa()
 lonh, lath = np.deg2rad(mdi.lonh), np.deg2rad(mdi.lath)
 B0 = M(mdi.B0, np.abs(mdi.B0)*.05)*np.pi/180
@@ -55,7 +55,7 @@ L0 = M(mdi.L0, np.abs(mdi.L0)*.05)*np.pi/180
 
 Xobs = M.cos(B0)*M.cos(L0)
 mdi.los_corr()
-print(mdi.im_corr_u.v[27,506])
+print(mdi.im_corr_u[996,506])
 #print (np.nansum(mdi.area))
 #KPVT
 #kpvt.heliographic(kpvt.im_raw.data)

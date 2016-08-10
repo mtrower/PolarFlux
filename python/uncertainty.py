@@ -8,10 +8,21 @@ class Measurement:
         self.v = value
         self.u = uncertainty
 
+    def __getitem__(self, index):
+        row = index[0]
+        col = index[1]
+        print ("{}+/-{}".format(self.v[row, col], self.u[row, col]))
+        return
+
     def __repr__(self):
-        return 'Measurement({}+/-{}'.format(self.v, self.u)
+        return 'Measurement({}, {})'.format(self.v, self.u)
+
+    def __str__(self):
+        return '{}+/-{}'.format(self.v, self.u)
 
     def __add__(self, right):
+        if isinstance(right, (float, np.ndarray, int)):
+            return Measurement(self.v + right, self.u)
         unc = np.sqrt(self.u**2 + right.u**2)
         return Measurement(self.v + right.v, unc)
 
@@ -19,6 +30,8 @@ class Measurement:
         self + left
 
     def __sub__(self, right):
+        if isinstance(right, (float, np.ndarray, int)):
+            return Measurement(self.v - right, self.u)
         unc = np.sqrt(self.u**2 + right.u**2)
         return Measurement(self.v - right.v, unc)
 
@@ -55,3 +68,6 @@ class Measurement:
 
     def sin(x):
         return Measurement(np.sin(x.v), np.abs(np.cos(x.v)*x.u))
+
+    def sqrt(x):
+        return Measurement(np.sqrt(x.v), 0.5*np.abs(x.u/np.sqrt(x.v)))
