@@ -5,8 +5,8 @@ import numpy as np
 import sunpy.map
 from sunpy.sun import constants
 from sunpy.sun import sun
-from uncertainies.umath import ufloat
-import uncertainty.unumpy as unp
+from uncertainties import ufloat
+import uncertainties.unumpy as unp
 import astropy.units as u
 import kpvt_class
 
@@ -28,7 +28,7 @@ class CRD:
     def __init__(self, filename):
         """Reads magnetogram as a sunpy.map object."""
         self.im_raw = sunpy.map.Map(filename)
-        self.im_raw_u = ufloat(self.im_raw.data, np.abs(self.im_raw.data)*.05)
+        self.im_raw_u = unp.uarray(self.im_raw.data, np.abs(self.im_raw.data)*.05)
 
         if self.im_raw.detector == '512':
 
@@ -61,10 +61,10 @@ class CRD:
             self.Y0 = self.im_raw.meta['Y0']
             self.B0 = self.im_raw.meta['B0']
             self.L0 = self.im_raw.meta['L0']
-            self.xScale = ufloat(1.982, 0.003)
-            self.yScale = ufloat(1.982, 0.003)
-            self.rsun = ufloat(self.im_raw.rsun_obs.value, 26000)
-            self.dsun = ufloat(self.im_raw.dsun.value, self.im_raw.dsun.value*.005)
+            self.xScale = 1.982
+            self.yScale = 1.982
+            self.rsun = self.im_raw.rsun_obs.value
+            self.dsun = self.im_raw.dsun.value
             if self.im_raw.meta['p_angle'] == 180.0:
                 self.im_raw.rotate(180)
 
@@ -151,22 +151,21 @@ class CRD:
         else:
             lonh, lath = np.deg2rad(self.heliographic(args[0], args[1]))
 
-        B0 = M(self.B0, np.abs(self.B0)*.05)*np.pi/180
-        L0 = M(self.L0, np.abs(self.L0)*.05)*np.pi/180
+        B0 = np.deg2rad(self.B0)
+        L0 = np.deg2rad(self.L0)
 
-        Xobs = M.cos(B0)*M.cos(L0)
-        Yobs = M.cos(B0)*M.sin(L0)
-        Zobs = M.sin(B0)
+        Xobs = np.cos(B0)*np.cos(L0)
+        Yobs = np.cos(B0)*np.sin(L0)
+        Zobs = np.sin(B0)
 
-        corr_factor = (np.cos(lath)*np.cos(lonh)*Xobs
-                + np.cos(lath)*np.sin(lonh)*Yobs
-                + np.sin(lath)*Zobs)
+        corr_factor = (unp.cos(lath)*unp.cos(lonh)*Xobs
+                + unp.cos(lath)*unp.sin(lonh)*Yobs
+                + unp.sin(lath)*Zobs)
 
         if array:
-            self.im_corr_u = self.im_raw_u/corr_factor
+            self.im_corr = self.im_raw_u/corr_factor
             bad_ind = np.where(self.rg > self.rsun*np.sin(75.0*np.pi/180))
-            self.im_corr_u.v[bad_ind] = np.nan
-            self.im_corr_u.u[bad_ind] = np.nan
+            self.im_corr[bad_ind] = np.nan
             return
         else:
             return self.im_raw.data[args[0], args[1]]/corr_factor
@@ -187,7 +186,9 @@ class CRD:
         # Information on pixel standard is in this article.
         # http://www.aanda.org/component/article?access=bibcode&bibcode=&bibcode=2002A%2526A...395.1061GFUL
         if array:
-            lon, lat = np.deg2rad(self.heliographic(corners=True))
+            lon, lat = self.heliographic(corners=True)
+            lon *= np.pi/180
+            lat *= np.pi/180
             # Calculating unit vectors of pixel corners for solid angle.
             r1 = self._spherical_to_cartesian(lon, lat, 0, 0)
             r2 = self._spherical_to_cartesian(lon, lat, 1, 0)
@@ -254,7 +255,7 @@ class CRD:
                 area = self.area
 
             if raw_field:
-                field = self.im_raw.data
+                field = self.im_raw_u
                 print ("Calculating raw magnetic flux.")
                 self.mflux_raw = area*field
                 return
@@ -288,7 +289,7 @@ class CRD:
             xRow = (np.arange(0, xDim + 1) - self.X0 - 0.5)*self.xScale
             yRow = (np.arange(0, yDim + 1) - self.Y0 - 0.5)*self.yScale
             xg, yg = np.meshgrid(xRow, yRow, indexing='xy')
-            rg = np.sqrt(xg**2 + yg**2)
+            rg = unp.sqrt(xg**2 + yg**2)
         else:
             xRow = (np.arange(0, xDim) - self.X0)*self.xScale
             yRow = (np.arange(0, yDim) - self.Y0)*self.yScale
@@ -313,8 +314,9 @@ class CRD:
         q = self.dsun * np.cos(y) * np.cos(x)
         distance = q**2 - self.dsun**2 + self.RSUN_METERS**2
         
+        ind = np.where(distance < 0)
         distance = q - np.sqrt(distance)
-
+        
         rx = distance * np.cos(y) * np.sin(x)
         ry = distance * np.sin(y)
         rz = np.sqrt(self.RSUN_METERS**2 - rx**2 - ry**2)
@@ -322,7 +324,7 @@ class CRD:
         return rx, ry, rz
 
     def _hcc_hg(self, x, y, z):
-        """Converts hcc coordinates to Stonoyhurst heliographic. 
+        """Converts hcc coordinates to Stonyhurst heliographic. 
 
         x - x coordinate in meters
         y - y coordinate in meters 
@@ -330,12 +332,12 @@ class CRD:
         Calculations taken and shortened
         from sunpy.wcs.
         """
-        cosb = np.cos(np.deg2rad(self.B0))
-        sinb = np.sin(np.deg2rad(self.B0))
+        cosb = np.cos(self.B0*np.pi/180)
+        sinb = np.sin(self.B0*np.pi/180)
 
         hecr = np.sqrt(x**2 + y**2 + z**2)
         hgln = np.arctan2(x, z*cosb - y*sinb) \
-                + np.deg2rad(self.L0)
+                + self.L0*np.pi/180
         hglt = np.arcsin((y * cosb + z * sinb)/hecr)
 
         return hgln*180/np.pi, hglt*180/np.pi
