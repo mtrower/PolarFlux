@@ -3,8 +3,10 @@
 # don't factor in enormously projected areas of the sun.
 #
 #    Variables:
-#               pc_px_ind:      Polar cap pixels
-#               vpc_px_ind:     Valid polar cap pixels
+#               p_px:      Polar cap pixels
+#               vp_px:     Valid polar cap pixels
+#               posp_px:   Positive flux polar cap pixels
+#               negp_px:   Negative flux polar cap pixels
 
 import numpy as np
 import pandas as pd
@@ -93,39 +95,41 @@ def calc_pol(pf_data, mgnt, pole):
         return pf_data
 
 def indices(m, pole, dlim):
+    print ("Determining polar cap pixels.")
     if pole == 'north':
-        pc = np.where(np.logical_and(np.less(m.rg, m.rsun),
+        p = np.where(np.logical_and(np.less(m.rg, m.rsun),
                 np.greater(m.lath, dlim)))
 
-        vpc = np.where(np.logical_and(
+        vp = np.where(np.logical_and(
                 np.logical_and(np.less(m.rg, m.rsun), np.greater(m.lath, dlim)),
                 np.isfinite(m.im_raw.data)))
 
-        pc_pos = np.where(np.logical_and(
+        posp = np.where(np.logical_and(
                 np.logical_and(np.less(m.rg, m.rsun), np.greater(m.lath, dlim)),
                 np.greater(m.im_corr, 0.0)))
 
-        pc_neg = np.where(np.logical_and(
+        negp = np.where(np.logical_and(
                 np.logical_and(np.less(m.rg, m.rsun), np.greater(m.lath, dlim)), 
                 np.less(m.im_corr, 0.0)))
     else:
-        pc = np.where(np.logical_and(np.less(m.rg, m.rsun),
+        p = np.where(np.logical_and(np.less(m.rg, m.rsun),
                 np.less(m.lath, -dlim)))
 
-        vpc = np.where(np.logical_and(
+        vp = np.where(np.logical_and(
                 np.logical_and(np.less(m.rg, m.rsun), np.less(m.lath, -dlim)),
                 np.isfinite(m.im_raw.data)))
 
-        pc_pos = np.where(np.logical_and(
+        posp = np.where(np.logical_and(
                 np.logical_and(np.less(m.rg, m.rsun), np.less(m.lath, -dlim)),
                 np.greater(m.im_corr, 0.0)))
 
-        pc_neg = np.where(np.logical_and(
+        negp = np.where(np.logical_and(
                 np.logical_and(np.less(m.rg, m.rsun), np.less(m.lath, -dlim)), 
                 np.less(m.im_corr, 0.0)))
     return pc, vpc, pc_pos, pc_neg
 
 def validate(p, vp, pos, neg):
+    print ("Validating polar cap.")
     # Search for polarity mixture.
     if (np.size(pos) == 0 or np.size(neg) == 0):
         print ("{} hemisphere has no polarity mixture.".format(pole))

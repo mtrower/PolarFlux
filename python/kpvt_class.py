@@ -84,6 +84,7 @@ class SPMGMap(sunpy.map.GenericMap):
             self.meta['cunit1'] = 'arcsec'
         if self.meta['cunit2'] == 'ARC-SEC':
             self.meta['cunit2'] = 'arcsec'
+        self.meta['detector'] = "SPMG"
         
         self.meta['pc2_1'] = 0
         self.meta['pc1_2'] = 0
