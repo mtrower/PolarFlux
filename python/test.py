@@ -2,7 +2,7 @@ from zaw_coord import CRD
 import kpvt_class
 #import sunpy.wcs
 import numpy as np
-import uncertainties.unumpy as unp
+from uncertainty import Measurement as M
 import timeit
 
 start = timeit.default_timer()
@@ -20,9 +20,9 @@ mdi.eoa()
 #mdi.los_corr()
 #print(mdi.im_corr_u[996,506])
 mdi.magnetic_flux()
-print(mdi.mflux_corr[300,300])
-
-print (np.nansum(mdi.area))
+#print(mdi.mflux_corr[300,300])
+print(M.nansum(mdi.area))
+print (M.nansum(mdi.mflux_corr))
 #print(np.nansum(mdi.mflux_corr[np.where(np.isfinite(mdi.mflux_corr))]))
 #print (np.nansum(mdi.area))
 
@@ -30,7 +30,7 @@ print (np.nansum(mdi.area))
 kpvt.heliographic()
 #kpvt.los_corr() 
 kpvt.eoa()
-kpvtflux = kpvt.magnetic_flux()
+kpvt.magnetic_flux()
 #print(np.nanmax(kpvt.area))
 #print(kpvt.area.shape)
 print(np.nansum(kpvt.area))
@@ -41,13 +41,10 @@ spmg.heliographic()
 # spmg.los_corr()
 spmg.eoa()
 # spmg.magnetic_flux()
-print(np.nanmax(spmgarea))
-# print(spmgarea.nansum())
-
 #HMI
 hmi.heliographic()
-#hmi.los_corr(h)
-hmiarea = hmi.eoa()
+#hmi.los_corr()
+hmi.eoa()
 hmi.magnetic_flux()
 print(np.nansum(hmi.area))
 

@@ -5,8 +5,7 @@ import numpy as np
 import sunpy.map
 from sunpy.sun import constants
 from sunpy.sun import sun
-from uncertainties import ufloat
-import uncertainties.unumpy as unp
+from uncertainty import Measurement as M
 import astropy.units as u
 import kpvt_class
 
@@ -28,7 +27,7 @@ class CRD:
     def __init__(self, filename):
         """Reads magnetogram as a sunpy.map object."""
         self.im_raw = sunpy.map.Map(filename)
-        self.im_raw_u = unp.uarray(self.im_raw.data, np.abs(self.im_raw.data)*.05)
+        self.im_raw_u = M(self.im_raw.data, np.abs(self.im_raw.data)*.10)
 
         if self.im_raw.detector == '512':
 
@@ -59,11 +58,11 @@ class CRD:
             # Define center of sun and location of detector.
             self.X0 = self.im_raw.meta['X0']
             self.Y0 = self.im_raw.meta['Y0']
-            self.B0 = self.im_raw.meta['B0']
-            self.L0 = self.im_raw.meta['L0']
-            self.xScale = 1.982
-            self.yScale = 1.982
-            self.rsun = self.im_raw.rsun_obs.value
+            self.B0 = M(self.im_raw.meta['B0'], 0)
+            self.L0 = M(self.im_raw.meta['L0'], 0)
+            self.xScale = M(1.982, 0.003)
+            self.yScale = M(1.982, 0.003)
+            self.rsun = M(self.im_raw.rsun_obs.value, 26000)
             self.dsun = self.im_raw.dsun.value
             if self.im_raw.meta['p_angle'] == 180.0:
                 self.im_raw.rotate(180)
@@ -79,8 +78,9 @@ class CRD:
             self.dsun = self.im_raw.dsun.value
             
     def __repr__(self):
-        #TODO
-        return None
+        for key in ['X0', 'Y0', 'B0', 'L0', 'xScale', 'yScale', 'rsun', 'dsun']:
+            print ("{0}: {1}".format(key, getattr(self, key)))
+        #TODO: add attribute checks and fix Nonetype return error
 
     def meta(self):
         """Prints the fits header in a more readable fashion."""
@@ -144,23 +144,23 @@ class CRD:
         print("Correcting line of sight magnetic field.")
         if array:
             try:
-                lonh, lath = np.deg2rad(self.lonh), np.deg2rad(self.lath)
+                lonh, lath = M.deg2rad(self.lonh), M.deg2rad(self.lath)
             except AttributeError:
                 self.heliographic()
-                lonh, lath = self.lonh*np.pi/180, self.lath*np.pi/180
+                lonh, lath = M.deg2rad(self.lonh), M.deg2rad(self.lath)
         else:
-            lonh, lath = np.deg2rad(self.heliographic(args[0], args[1]))
+            lonh, lath = M.deg2rad(self.heliographic(args[0], args[1]))
 
-        B0 = np.deg2rad(self.B0)
-        L0 = np.deg2rad(self.L0)
+        B0 = M.deg2rad(self.B0)
+        L0 = M.deg2rad(self.L0)
 
-        Xobs = np.cos(B0)*np.cos(L0)
-        Yobs = np.cos(B0)*np.sin(L0)
-        Zobs = np.sin(B0)
+        Xobs = M.cos(B0)*M.cos(L0)
+        Yobs = M.cos(B0)*M.sin(L0)
+        Zobs = M.sin(B0)
 
-        corr_factor = (unp.cos(lath)*unp.cos(lonh)*Xobs
-                + unp.cos(lath)*unp.sin(lonh)*Yobs
-                + unp.sin(lath)*Zobs)
+        corr_factor = (M.cos(lath)*M.cos(lonh)*Xobs
+                + M.cos(lath)*M.sin(lonh)*Yobs
+                + M.sin(lath)*Zobs)
 
         if array:
             self.im_corr = self.im_raw_u/corr_factor
@@ -187,8 +187,8 @@ class CRD:
         # http://www.aanda.org/component/article?access=bibcode&bibcode=&bibcode=2002A%2526A...395.1061GFUL
         if array:
             lon, lat = self.heliographic(corners=True)
-            lon *= np.pi/180
-            lat *= np.pi/180
+            lon = lon*np.pi/180
+            lat = lat*np.pi/180
             # Calculating unit vectors of pixel corners for solid angle.
             r1 = self._spherical_to_cartesian(lon, lat, 0, 0)
             r2 = self._spherical_to_cartesian(lon, lat, 1, 0)
@@ -222,21 +222,21 @@ class CRD:
 
         # Calculate solid angle of pixel based on a pyrimid shaped polygon.
         # See http://planetmath.org/solidangleofrectangularpyramid
-
-        cross1 = np.cross(r1, r2, axis=0)
-        cross2 = np.cross(r3, r4, axis=0)
-        numerator1 = self._dot(cross1, r3)
-        numerator2 = self._dot(cross2, r1)
-        solid_angle1 = 2*np.arctan2(numerator1,
-                (self._dot(r1, r2) + self._dot(r2, r3) + self._dot(r3, r1) + 1))
-        solid_angle2 = 2*np.arctan2(numerator2, 
-                (self._dot(r3, r4) + self._dot(r4, r1) + self._dot(r3, r1) + 1))
+        cross1 = M.cross(r1, r2, axis=0)
+        cross2 = M.cross(r3, r4, axis=0)
+        numerator1 = M.dot(cross1, r3)
+        numerator2 = M.dot(cross2, r1)
+        solid_angle1 = 2*M.arctan2(numerator1,
+                (M.dot(r1, r2) + M.dot(r2, r3) + M.dot(r3, r1) + 1))
+        solid_angle2 = 2*M.arctan2(numerator2, 
+                (M.dot(r3, r4) + M.dot(r4, r1) + M.dot(r3, r1) + 1))
         solid_angle = solid_angle1 + solid_angle2
 
         r = self.RSUN_METERS*100 # Convert to centimeters
         if array:
-            self.area = np.abs((r**2)*solid_angle)
-            ind = np.where(self.rg[1:len(self.rg)-1, 1:len(self.rg)-1] > self.rsun)
+            self.area = abs((r**2)*solid_angle)
+            ind = np.where(self.Rg[1:len(self.Rg)-1, 1:len(self.Rg)-1] > self.rsun)
+            del self.Rg
             self.area[ind] = np.nan
             return
         else:
@@ -288,13 +288,14 @@ class CRD:
         if corners:
             xRow = (np.arange(0, xDim + 1) - self.X0 - 0.5)*self.xScale
             yRow = (np.arange(0, yDim + 1) - self.Y0 - 0.5)*self.yScale
-            xg, yg = np.meshgrid(xRow, yRow, indexing='xy')
-            rg = unp.sqrt(xg**2 + yg**2)
+            xg, yg = M.meshgrid(xRow, yRow)
+            rg = M.sqrt(xg**2 + yg**2)
+            self.Rg = rg
         else:
             xRow = (np.arange(0, xDim) - self.X0)*self.xScale
             yRow = (np.arange(0, yDim) - self.Y0)*self.yScale
-            xg, yg = np.meshgrid(xRow, yRow, indexing='xy')
-            rg = np.sqrt(xg**2 + yg**2)
+            xg, yg = M.meshgrid(xRow, yRow)
+            rg = M.sqrt(xg**2 + yg**2)
             self.xg = xg
             self.yg = yg
             self.rg = rg
@@ -311,15 +312,13 @@ class CRD:
         x *= np.deg2rad(1)/3600.0
         y *= np.deg2rad(1)/3600.0
 
-        q = self.dsun * np.cos(y) * np.cos(x)
+        q = self.dsun * M.cos(y) * M.cos(x)
         distance = q**2 - self.dsun**2 + self.RSUN_METERS**2
+        distance = q - M.sqrt(distance)
         
-        ind = np.where(distance < 0)
-        distance = q - np.sqrt(distance)
-        
-        rx = distance * np.cos(y) * np.sin(x)
-        ry = distance * np.sin(y)
-        rz = np.sqrt(self.RSUN_METERS**2 - rx**2 - ry**2)
+        rx = distance * M.cos(y) * M.sin(x)
+        ry = distance * M.sin(y)
+        rz = M.sqrt(self.RSUN_METERS**2 - rx**2 - ry**2)
 
         return rx, ry, rz
 
@@ -332,13 +331,13 @@ class CRD:
         Calculations taken and shortened
         from sunpy.wcs.
         """
-        cosb = np.cos(self.B0*np.pi/180)
-        sinb = np.sin(self.B0*np.pi/180)
+        cosb = M.cos(M.deg2rad(self.B0))
+        sinb = M.sin(M.deg2rad(self.B0))
 
-        hecr = np.sqrt(x**2 + y**2 + z**2)
-        hgln = np.arctan2(x, z*cosb - y*sinb) \
-                + self.L0*np.pi/180
-        hglt = np.arcsin((y * cosb + z * sinb)/hecr)
+        hecr = M.sqrt(x**2 + y**2 + z**2)
+        hgln = M.arctan2(x, z*cosb - y*sinb) \
+                + M.deg2rad(self.L0)
+        hglt = M.arcsin((y * cosb + z * sinb)/hecr)
 
         return hgln*180/np.pi, hglt*180/np.pi
 
@@ -348,7 +347,7 @@ class CRD:
         Wanted a dot product function that performed operations
         element-wise.
         """
-        return  np.array(a[0]*b[0] + a[1]*b[1] + a[2]*b[2])
+        return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 
     def _spherical_to_cartesian(self, lon, lat, i, j):
         """Takes latitude, longitude arrays and returns cartesian unit vector.
@@ -362,12 +361,16 @@ class CRD:
         1, 1: bottom-right
         0, 1: top-right
         """
-        coslat = np.cos(lat)
-        coslon = np.cos(lon)
-        sinlat = np.sin(lat)
-        sinlon = np.sin(lon)
+        coslat = M.cos(lat)
+        coslon = M.cos(lon)
+        sinlat = M.sin(lat)
+        sinlon = M.sin(lon)
         l = len(lat)
-        r = np.array([coslat[i:l - 1 + i, j:l - 1 + j]*coslon[i:l - 1 + i, j:l - 1 + j],
-                    coslat[i:l - 1 + i, j:l - 1 + j]*sinlon[i:l - 1 + i, j:l - 1 + j],
-                    sinlat[i:l - 1 + i, j:l - 1 + j]])
+        Xar = coslat[i:l - 1 + i, j:l - 1 + j]*coslon[i:l - 1 + i, j:l - 1 + j]
+        Yar = coslat[i:l - 1 + i, j:l - 1 + j]*sinlon[i:l - 1 + i, j:l - 1 + j]
+        Zar = sinlat[i:l - 1 + i, j:l - 1 + j]
+        r = np.ndarray(shape=(3,), dtype=np.object)
+        r[0] = Xar
+        r[1] = Yar
+        r[2] = Zar
         return r
