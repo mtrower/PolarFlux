@@ -13,6 +13,7 @@
 import numpy as np
 import pandas as pd
 import datetime as dt
+from uncertainty import Measurement as M
 import zaw_util
 from collections import OrderedDict
 import os.path
@@ -27,7 +28,7 @@ d1 = None       # Start date
 d2 = None       # End date
 instr = None    # Instrument
 
-# Data dictionary initialization to be stored in a list.
+# Data dictionary initialization to be stored in an ordered list.
 data0 = OrderedDict([('md', 0), ('date', ''), ('intf_n', np.nan),
         ('intfc_n', np.nan), ('unsflux_n', np.nan), ('unsfluxc_n', np.nan),
         ('sflux_n', np.nan), ('sfluxc_n', np.nan), ('posfluxc_n', np.nan),
@@ -39,13 +40,54 @@ data0 = OrderedDict([('md', 0), ('date', ''), ('intf_n', np.nan),
         ('nvp_px_s', np.nan), ('visarea_s', np.nan), ('max_pxflux_s', np.nan), 
         ('max_pxf_s', np.nan), ('max_pxfc_s', np.nan), ('swt_s', np.nan)])
 
-def calc_pol(pf_data, mgnt, pole, dlim):
+def usage():
+    print('Usage: zaw_pf_script.py [-d data-root] [-s start-date] [-e end-date] [-i instrument]')
+
+def parse_args():
+    global d1, d2, instr
+
+    try:
+        opts, args = getopt.getopt(
+                sys.argv[1:],
+                "d:s:e:i:", 
+                ["data-root=", "date-start=", "date-end=", "instrument=", "debug"])
+    except getopt.GetoptError as err:
+        print(err)
+        usage()
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ("-d", "--data-root"):
+            zaw_util.data_root = arg
+        elif opt in ("-s", "--date-start"):
+            d1 = arg
+        elif opt in ("-e", "--date-end"):
+            d2 = arg
+        elif opt in ("-i", "--instrument"):
+            instr = arg
+        elif opt in ("--debug"):
+            zaw_util.debug = True
+        else:
+            assert False, "unhandled option"
+
+def init(seg):
+    global d1, d2, instr
+    seg.pf = []
+    seg.meta = {'start_date':dt.date(int(d1[0:4]), int(d1[5:7]), int(d1[8:10])),
+              'end_date':dt.date(int(d2[0:4]), int(d2[5:7]), int(d2[8:10])),
+              'md_i': None,
+              'md_f': None,
+              'instrument': instr, 'deg_lim': 65.0, 'inv_px_tol': 0.85}
+    seg.meta['md_i'] = zaw_util.date2md(seg.meta['start_date'], seg.meta['instrument'])
+    seg.meta['md_f'] = zaw_util.date2md(seg.meta['end_date'], seg.meta['instrument'])
+
+def calc_pol(pf_data, mgnt, pole, seg):
     pole = pole.lower()
 
-    p_px, vp_px, posp_px, negp_px = indices(mgnt, pole, dlim)
+    p_px, vp_px, posp_px, negp_px = indices(mgnt, pole, seg.meta['deg_lim'])
     
-    swt = validate(p_px, vp_px, posp_px, negp_px)
-    
+    #swt = validate(p_px, vp_px, posp_px, negp_px, pole, seg.meta['inv_px_tol'])
+    swt = 0
     # Return with no data if the two previous cases are true.
     if swt != 0:
         pf_data['md'] = mgnt.md
@@ -123,7 +165,7 @@ def indices(m, pole, dlim):
 
     return p, vp, posp, negp
 
-def validate(p, vp, pos, neg, tol):
+def validate(p, vp, pos, neg, pole, tol):
     print ("Validating polar cap.")
     # Search for polarity mixture.
     if (np.size(pos) == 0 or np.size(neg) == 0):
@@ -132,51 +174,24 @@ def validate(p, vp, pos, neg, tol):
 
     # Disregard magnetograms under the tolerance level for valid pixels.
     if (float(np.size(vp))/float(np.size(p)) < tol):
+        print(float(np.size(vp)/float(np.size(p))))
         print ("{} hemisphere has more than {} %% invalid pixels.". 
                 format(pole, 1.0 - (tol)*100))
         return 2
 
     return 0
 
-def usage():
-    print('Usage: zaw_pf_script.py [-d data-root] [-s start-date] [-e end-date] [-i instrument]')
-
-def parse_args():
-    global d1, d2, instr
-
-    try:
-        opts, args = getopt.getopt(
-                sys.argv[1:],
-                "d:s:e:i:", 
-                ["data-root=", "date-start=", "date-end=", "instrument=", "debug"])
-    except getopt.GetoptError as err:
-        print(err)
-        usage()
-        sys.exit(2)
-
-    for opt, arg in opts:
-        if opt in ("-d", "--data-root"):
-            zaw_util.data_root = arg
-        elif opt in ("-s", "--date-start"):
-            d1 = arg
-        elif opt in ("-e", "--date-end"):
-            d2 = arg
-        elif opt in ("-i", "--instrument"):
-            instr = arg
-        elif opt in ("--debug"):
-            zaw_util.debug = True
-        else:
-            assert False, "unhandled option"
-
-def init(x):
-    x.pf = []
-    x.deg_lim = 65.0
-    x.inv_px_tol = 0.85
-    x.start_date = dt.date(int(d1[0:4]), int(d1[5:7]), int(d1[8:10]))
-    x.end_date = dt.date(int(d2[0:4]), int(d2[5:7]), int(d2[8:10]))
-    x.instrument = instr
-    x.md_i = zaw_util.date2md(x.start_date, x.instrument)
-    x.md_f = zaw_util.date2md(x.end_date, x.instrument)
+def process(seg, date):
+    while date <= seg.meta['end_date']:
+        print(date)
+        mgnt = zaw_util.CRD_read(date_c, seg.meta['instrument'])
+        if mgnt != -1:
+            print("Calculating polar parameters")
+            data = data0.copy()
+            calc_pol(data, mgnt, 'north', seg.meta)
+            calc_pol(data, mgnt, 'south', seg.meta)
+            seg.pf.append(data)
+        date = date + dt.timedelta(1)
 
 def export(pf):
     out_fn = 'PF_{}_{}.csv'.format(pf.start_date.isoformat(), pf.end_date.isoformat())
@@ -196,18 +211,9 @@ def main():
     init(segment)
 
     # Proceed with function calls to read and calculate data.
-    date_c = segment.start_date
+    date_c = segment.meta['start_date']
 
-    while date_c <= segment.end_date:
-        print(date_c)
-        mgnt = zaw_util.CRD_read(date_c, segment.instrument)
-        if mgnt != -1:
-            print("Calculating polar parameters")
-            data = data0.copy()
-            calc_pol(data, mgnt, 'north', segment.deg_lim)
-            calc_pol(data, mgnt, 'south', segment.deg_lim)
-            segment.pf.append(data)
-        date_c = date_c + dt.timedelta(1)
+    process(segment, date_c)
 
     obj = pd.DataFrame(segment.pf, columns=segment.pf[0].keys())
     export(segment)
