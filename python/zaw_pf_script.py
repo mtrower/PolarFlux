@@ -39,10 +39,10 @@ data0 = OrderedDict([('md', 0), ('date', ''), ('intf_n', np.nan),
         ('nvp_px_s', np.nan), ('visarea_s', np.nan), ('max_pxflux_s', np.nan), 
         ('max_pxf_s', np.nan), ('max_pxfc_s', np.nan), ('swt_s', np.nan)])
 
-def calc_pol(pf_data, mgnt, pole):
+def calc_pol(pf_data, mgnt, pole, dlim):
     pole = pole.lower()
 
-    p_px, vp_px, posp_px, negp_px = indices(mgnt, pole, segment.deg_lim)
+    p_px, vp_px, posp_px, negp_px = indices(mgnt, pole, dlim)
     
     swt = validate(p_px, vp_px, posp_px, negp_px)
     
@@ -58,18 +58,18 @@ def calc_pol(pf_data, mgnt, pole):
         return pf_data
     # Otherwise calculate data from the poles.
     else:
-        intf = np.nanmean(mgnt.im_raw.data[vp_px])
-        intfc = np.nanmean(mgnt.im_corr[vp_px])
-        unsflux = np.nansum(np.abs(mgnt.mflux_raw[vp_px]))
-        unsfluxc = np.nansum(np.abs(mgnt.mflux_corr[vp_px]))
-        sflux = np.nansum(mgnt.mflux_raw[vp_px])
-        sfluxc = np.nansum(mgnt.mflux_corr[vp_px])
-        posfluxc = np.nansum(mgnt.mflux_corr[posp_px])
-        negfluxc = np.nansum(mgnt.mflux_corr[negp_px])
-        visarea = np.nansum(mgnt.area[vp_px])
-        max_pxflux = np.nanmax(np.abs( mgnt.mflux_corr[vp_px]))
-        max_pxf = np.nanmax(mgnt.im_raw.data[vp_px])
-        max_pxfc =  np.nanmax(mgnt.im_corr[vp_px])
+        intf = M.nanmean(mgnt.im_raw.data[vp_px])
+        intfc = M.nanmean(mgnt.im_corr[vp_px])
+        unsflux = M.nansum(np.abs(mgnt.mflux_raw[vp_px]))
+        unsfluxc = M.nansum(np.abs(mgnt.mflux_corr[vp_px]))
+        sflux = M.nansum(mgnt.mflux_raw[vp_px])
+        sfluxc = M.nansum(mgnt.mflux_corr[vp_px])
+        posfluxc = M.nansum(mgnt.mflux_corr[posp_px])
+        negfluxc = M.nansum(mgnt.mflux_corr[negp_px])
+        visarea = M.nansum(mgnt.area[vp_px])
+        max_pxflux = M.nanmax(np.abs( mgnt.mflux_corr[vp_px]))
+        max_pxf = M.nanmax(mgnt.im_raw.data[vp_px])
+        max_pxfc =  M.nanmax(mgnt.im_corr[vp_px])
 
         # Corrected field might be zero. Replace entries with NaNs.
         if unsfluxc == 0.0:
@@ -99,38 +99,31 @@ def calc_pol(pf_data, mgnt, pole):
 def indices(m, pole, dlim):
     print ("Determining polar cap pixels.")
     if pole == 'north':
-        p = np.where(np.logical_and(np.less(m.rg, m.rsun),
-                np.greater(m.lath, dlim)))
+        p = np.where((m.rg < m.rsun) & (m.lath > dlim))
 
-        vp = np.where(np.logical_and(
-                np.logical_and(np.less(m.rg, m.rsun), np.greater(m.lath, dlim)),
-                np.isfinite(m.im_raw.data)))
+        vp = np.where((m.rg < m.rsun) & (m.lath > dlim) 
+                & M.isfinite(m.mflux_corr))
 
-        posp = np.where(np.logical_and(
-                np.logical_and(np.less(m.rg, m.rsun), np.greater(m.lath, dlim)),
-                np.greater(m.im_corr, 0.0)))
+        posp = np.where((m.rg < m.rsun) & (m.lath > dlim)
+                & (m.im_corr > 0.0))
 
-        negp = np.where(np.logical_and(
-                np.logical_and(np.less(m.rg, m.rsun), np.greater(m.lath, dlim)), 
-                np.less(m.im_corr, 0.0)))
+        negp = np.where((m.rg < m.rsun) & (m.lath > dlim)
+                & (m.im_corr < 0.0))
     else:
-        p = np.where(np.logical_and(np.less(m.rg, m.rsun),
-                np.less(m.lath, -dlim)))
+        p = np.where((m.rg < m.rsun) & (m.lath < -dlim))
 
-        vp = np.where(np.logical_and(
-                np.logical_and(np.less(m.rg, m.rsun), np.less(m.lath, -dlim)),
-                np.isfinite(m.im_raw.data)))
+        vp = np.where((m.rg < m.rsun) & (m.lath < -dlim) 
+                & M.isfinite(m.mflux_corr))
 
-        posp = np.where(np.logical_and(
-                np.logical_and(np.less(m.rg, m.rsun), np.less(m.lath, -dlim)),
-                np.greater(m.im_corr, 0.0)))
+        posp = np.where((m.rg < m.rsun) & (m.lath < -dlim)
+                & (m.im_corr > 0.0))
 
-        negp = np.where(np.logical_and(
-                np.logical_and(np.less(m.rg, m.rsun), np.less(m.lath, -dlim)), 
-                np.less(m.im_corr, 0.0)))
-    return pc, vpc, pc_pos, pc_neg
+        negp = np.where((m.rg < m.rsun) & (m.lath < -dlim)
+                & (m.im_corr < 0.0))
 
-def validate(p, vp, pos, neg):
+    return p, vp, posp, negp
+
+def validate(p, vp, pos, neg, tol):
     print ("Validating polar cap.")
     # Search for polarity mixture.
     if (np.size(pos) == 0 or np.size(neg) == 0):
@@ -138,9 +131,9 @@ def validate(p, vp, pos, neg):
         return 3
 
     # Disregard magnetograms under the tolerance level for valid pixels.
-    if (float(np.size(vp))/float(np.size(p)) < segment.inv_px_tol):
+    if (float(np.size(vp))/float(np.size(p)) < tol):
         print ("{} hemisphere has more than {} %% invalid pixels.". 
-                format(pole, 1.0 - (segment.inv_px_tol)*100))
+                format(pole, 1.0 - (tol)*100))
         return 2
 
     return 0
@@ -191,7 +184,7 @@ def export(pf):
 
 def main():
     global d1, d2, instr
-    
+
     parse_args()
 
     if    d1 == None:    d1 = input('Enter starting date: ')
@@ -211,8 +204,8 @@ def main():
         if mgnt != -1:
             print("Calculating polar parameters")
             data = data0.copy()
-            calc_pol(data, mgnt, 'north')
-            calc_pol(data, mgnt, 'south')
+            calc_pol(data, mgnt, 'north', segment.deg_lim)
+            calc_pol(data, mgnt, 'south', segment.deg_lim)
             segment.pf.append(data)
         date_c = date_c + dt.timedelta(1)
 
