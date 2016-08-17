@@ -7,6 +7,8 @@
 #               vp_px:     Valid polar cap pixels
 #               posp_px:   Positive flux polar cap pixels
 #               negp_px:   Negative flux polar cap pixels
+#               swt:       Switch to determine bad polar cap type
+#
 
 import numpy as np
 import pandas as pd
@@ -17,13 +19,13 @@ import os.path
 import getopt
 import sys
 
-d1 = None       # Start date
-d2 = None       # End date
-instr = None    # Instrument
-
 # This is the container class for the entire segmented polar data.
 class PFData:
     pass
+
+d1 = None       # Start date
+d2 = None       # End date
+instr = None    # Instrument
 
 # Data dictionary initialization to be stored in a list.
 data0 = OrderedDict([('md', 0), ('date', ''), ('intf_n', np.nan),
@@ -173,37 +175,49 @@ def parse_args():
         else:
             assert False, "unhandled option"
 
-parse_args()
+def init(x):
+    x.pf = []
+    x.deg_lim = 65.0
+    x.inv_px_tol = 0.85
+    x.start_date = dt.date(int(d1[0:4]), int(d1[5:7]), int(d1[8:10]))
+    x.end_date = dt.date(int(d2[0:4]), int(d2[5:7]), int(d2[8:10]))
+    x.instrument = instr
+    x.md_i = zaw_util.date2md(x.start_date, x.instrument)
+    x.md_f = zaw_util.date2md(x.end_date, x.instrument)
 
-if    d1 == None:    d1 = input('Enter starting date: ')
-if    d2 == None:    d2 = input('Enter end date: ')
-if instr == None: instr = input('Enter the instrument: ')
+def export(pf):
+    out_fn = 'PF_{}_{}.csv'.format(pf.start_date.isoformat(), pf.end_date.isoformat())
+    obj.to_csv(out_fn)
 
-# Initialize the segment data first.
-segment = PFData()
-segment.pf = []
-segment.deg_lim = 65.0
-segment.inv_px_tol = 0.85
-segment.start_date = dt.date(int(d1[0:4]), int(d1[5:7]), int(d1[8:10]))
-segment.end_date = dt.date(int(d2[0:4]), int(d2[5:7]), int(d2[8:10]))
-segment.instrument = instr
-segment.md_i = zaw_util.date2md(segment.start_date, segment.instrument)
-segment.md_f = zaw_util.date2md(segment.end_date, segment.instrument)
+def main():
+    global d1, d2, instr
+    
+    parse_args()
 
-# Proceed with function calls to read and calculate data.
-date_c = segment.start_date
+    if    d1 == None:    d1 = input('Enter starting date: ')
+    if    d2 == None:    d2 = input('Enter end date: ')
+    if instr == None: instr = input('Enter the instrument: ')
 
-while date_c <= segment.end_date:
-    print(date_c)
-    mgnt = zaw_util.CRD_read(date_c, segment.instrument)
-    if mgnt != -1:
-        print("Calculating polar parameters")
-        data = data0.copy()
-        calc_pol(data, mgnt, 'north')
-        calc_pol(data, mgnt, 'south')
-        segment.pf.append(data)
-    date_c = date_c + dt.timedelta(1)
+    # Initialize the segment data first.
+    segment = PFData()
+    init(segment)
 
-obj = pd.DataFrame(segment.pf, columns=segment.pf[0].keys())
-out_fn = 'PF_{}_{}.csv'.format(segment.start_date.isoformat(), segment.end_date.isoformat())
-obj.to_csv(out_fn)
+    # Proceed with function calls to read and calculate data.
+    date_c = segment.start_date
+
+    while date_c <= segment.end_date:
+        print(date_c)
+        mgnt = zaw_util.CRD_read(date_c, segment.instrument)
+        if mgnt != -1:
+            print("Calculating polar parameters")
+            data = data0.copy()
+            calc_pol(data, mgnt, 'north')
+            calc_pol(data, mgnt, 'south')
+            segment.pf.append(data)
+        date_c = date_c + dt.timedelta(1)
+
+    obj = pd.DataFrame(segment.pf, columns=segment.pf[0].keys())
+    export(segment)
+
+if __name__ == "__main__":
+    main()
