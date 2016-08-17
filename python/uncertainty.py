@@ -79,12 +79,28 @@ class Measurement:
 
     def __gt__(a, b):
         try:
-            return a.v > b.v
-        except TypeError:
-            return a > b.v
-        except TypeError:
-            return a.v > b
+            return np.greater(a.v, b.v)
+        except AttributeError:
+            if isinstance(a, Measurement):
+                return np.greater(a.v, b)
+            else:
+                return np.greater(a, b.v)
+
+    def __lt__(a, b):
+        try:
+            return np.less(a.v, b.v)
+        except AttributeError:
+            if isinstance(a, Measurement):
+                return np.less(a.v, b)
+            else:
+                return np.less(a, b.v)
         
+    def __and__(a, b):
+        return np.logical_and(a, b)
+
+    def __or__(a, b):
+        return np.logical_or(a, b)
+
     def cos(x):
         try:
             return Measurement(np.cos(x.v), np.abs(np.sin(x.v)*x.u))
@@ -98,24 +114,35 @@ class Measurement:
             return np.sin(x)
 
     def arctan(x):
-        val = np.arctan(x.v)
-        unc = 1/(1 + x.v*x.v)*x.u
-        return Measurement(val, unc)
-
+        try:
+            val = np.arctan(x.v)
+            unc = 1/(1 + x.v*x.v)*x.u
+            return Measurement(val, unc)
+        except AttributeError:
+            return np.arctan(x)
 
     def arctan2(x, y):
-        val = np.arctan2(x.v, y.v)
-        z = x/y
-        unc = 1/(1 + z.v*z.v)*z.u
-        return Measurement(val, np.abs(unc))
+        try:
+            val = np.arctan2(x.v, y.v)
+            z = x/y
+            unc = 1/(1 + z.v*z.v)*z.u
+            return Measurement(val, np.abs(unc))
+        except AttributeError:
+            return np.arctan2(x, y)
 
     def arcsin(x):
-        val = np.arcsin(x.v)
-        unc = (1/np.sqrt(1 - x.v*x.v))*x.u
-        return Measurement(val, np.abs(unc))
+        try:
+            val = np.arcsin(x.v)
+            unc = (1/np.sqrt(1 - x.v*x.v))*x.u
+            return Measurement(val, np.abs(unc))
+        except AttributeError:
+            return np.arcsin(x)
 
     def sqrt(x):
-        return Measurement(np.sqrt(x.v), 0.5*np.abs(x.u/np.sqrt(x.v)))
+        try:
+            return Measurement(np.sqrt(x.v), 0.5*np.abs(x.u/np.sqrt(x.v)))
+        except AttributeError:
+            return np.sqrt(x)
 
     def deg2rad(x):
         return x*np.pi/180
@@ -137,11 +164,14 @@ class Measurement:
         return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 
     def nansum(array):
-        unc = 0
-        for i in np.nditer(array.u):
-            if np.isfinite(i):
-                unc += i**2
-        return Measurement(np.nansum(array.v), np.sqrt(unc))
+        try:
+            unc = 0
+            for i in np.nditer(array.u):
+                if np.isfinite(i):
+                    unc += i**2
+            return Measurement(np.nansum(array.v), np.sqrt(unc))
+        except AttributeError:
+            return np.nansum(array)
 
     def meshgrid(xRow, yRow):
         xg = Measurement(0,0)
