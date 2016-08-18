@@ -11,7 +11,7 @@ def dateOffset(instr):
     if instr == 'spmg':
         year = 1990
     elif instr == 'mdi':
-        year = 1993
+        year = 1996
     elif instr == 'hmi':
         year = 2009
     else:
