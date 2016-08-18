@@ -101,15 +101,15 @@ def calc_pol(pf_data, mgnt, pole, seg):
     # Otherwise calculate data from the poles.
     else:
         intf = M.nanmean(mgnt.im_raw.data[vp_px])
-        intfc = M.nanmean(mgnt.im_corr[vp_px])
-        unsflux = M.nansum(np.abs(mgnt.mflux_raw[vp_px]))
-        unsfluxc = M.nansum(np.abs(mgnt.mflux_corr[vp_px]))
+        intfc = M.nanmean(mgnt.im_corr.v[vp_px])
+        unsflux = M.nansum(abs(mgnt.mflux_raw[vp_px]))
+        unsfluxc = M.nansum(abs(mgnt.mflux_corr[vp_px]))
         sflux = M.nansum(mgnt.mflux_raw[vp_px])
         sfluxc = M.nansum(mgnt.mflux_corr[vp_px])
         posfluxc = M.nansum(mgnt.mflux_corr[posp_px])
         negfluxc = M.nansum(mgnt.mflux_corr[negp_px])
         visarea = M.nansum(mgnt.area[vp_px])
-        max_pxflux = M.nanmax(np.abs( mgnt.mflux_corr[vp_px]))
+        max_pxflux = M.nanmax(abs( mgnt.mflux_corr[vp_px]))
         max_pxf = M.nanmax(mgnt.im_raw.data[vp_px])
         max_pxfc =  M.nanmax(mgnt.im_corr[vp_px])
 
@@ -144,7 +144,7 @@ def indices(m, pole, dlim):
         p = np.where((m.rg < m.rsun) & (m.lath > dlim))
 
         vp = np.where((m.rg < m.rsun) & (m.lath > dlim) 
-                & M.isfinite(m.mflux_corr))
+                & M.isfinite(m.im_corr))
 
         posp = np.where((m.rg < m.rsun) & (m.lath > dlim)
                 & (m.im_corr > 0.0))
@@ -155,7 +155,7 @@ def indices(m, pole, dlim):
         p = np.where((m.rg < m.rsun) & (m.lath < -dlim))
 
         vp = np.where((m.rg < m.rsun) & (m.lath < -dlim) 
-                & M.isfinite(m.mflux_corr))
+                & M.isfinite(m.im_corr))
 
         posp = np.where((m.rg < m.rsun) & (m.lath < -dlim)
                 & (m.im_corr > 0.0))

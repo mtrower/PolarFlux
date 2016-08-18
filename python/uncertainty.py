@@ -86,6 +86,15 @@ class Measurement:
             else:
                 return np.greater(a, b.v)
 
+    def __ge__(a, b):
+        try:
+            return np.greater_equal(a.v, b.v)
+        except AttributeError:
+            if isinstance(a, Measurement):
+                return np.greater_equal(a.v, b)
+            else:
+                return np.greater_equal(a, b.v)
+
     def __lt__(a, b):
         try:
             return np.less(a.v, b.v)
@@ -172,6 +181,25 @@ class Measurement:
             return Measurement(np.nansum(array.v), np.sqrt(unc))
         except AttributeError:
             return np.nansum(array)
+
+    def nanmean(array):
+        try:
+            for i in np.nditer(array.v):
+                return
+
+        except AttributeError:
+            return np.nanmean(array)
+    def isfinite(array):
+        try:
+            return np.isfinite(array.v)
+        except AttributeError:
+            return np.isfinite(array)
+
+    def nanmax(array):
+        try:
+            return np.nanmax(array.v)
+        except AttributeError:
+            return np.nanmax(array)
 
     def meshgrid(xRow, yRow):
         xg = Measurement(0,0)

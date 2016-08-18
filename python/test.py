@@ -64,7 +64,9 @@ mgnt.md = zaw_util.date2md(mgnt.date, x.meta['instrument'])
 p_px, vp_px, posp_px, negp_px = p.indices(mgnt, 'north', x.meta['deg_lim'])
 data = p.data0.copy()
 p.calc_pol(data, mgnt, 'north', x)
-
+p.calc_pol(data, mgnt, 'south', x)
+for key, value in data.items():
+    print ("{}: {}".format(key, value))
 
 stop = timeit.default_timer()
 print ("Time = ", stop - start)
