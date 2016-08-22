@@ -21,6 +21,11 @@ class Measurement:
     def __str__(self):
         return '{}+/-{}'.format(self.v, self.u)
 
+    def v(self):
+        return self.v
+
+    def u(self):
+        return self.u
     def __len__(self):
         return len(self.v)
 
@@ -184,9 +189,14 @@ class Measurement:
 
     def nanmean(array):
         try:
-            for i in np.nditer(array.v):
-                return
-
+            i = 0
+            unc = 0
+            val = np.nanmean(array.v)
+            for u in np.nditer(array.u):
+                if np.isfinite(u):
+                    unc += u**2
+                    i +=1
+            return Measurement(val, np.sqrt(unc)/i)
         except AttributeError:
             return np.nanmean(array)
     def isfinite(array):

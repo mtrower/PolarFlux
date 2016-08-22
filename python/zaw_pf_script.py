@@ -13,6 +13,7 @@
 import numpy as np
 import pandas as pd
 import datetime as dt
+import uncertainty
 from uncertainty import Measurement as M
 import zaw_util
 from collections import OrderedDict
@@ -29,16 +30,18 @@ d2 = None       # End date
 instr = None    # Instrument
 
 # Data dictionary initialization to be stored in an ordered list.
-data0 = OrderedDict([('md', 0), ('date', ''), ('intf_n', np.nan),
-        ('intfc_n', np.nan), ('unsflux_n', np.nan), ('unsfluxc_n', np.nan),
-        ('sflux_n', np.nan), ('sfluxc_n', np.nan), ('posfluxc_n', np.nan),
-        ('negfluxc_n', np.nan), ('nvp_px_n', np.nan), ('visarea_n', np.nan), 
+data0 = OrderedDict([('md', 0), ('date', ''), ('meanf_n', M(np.nan, np.nan)),
+        ('meanfc_n', M(np.nan, np.nan)), ('sumf_n', M(np.nan, np.nan)), ('sumfc_n', M(np.nan, np.nan)),
+        ('unsflux_n', M(np.nan, np.nan)), ('unsfluxc_n', M(np.nan, np.nan)), ('sflux_n', M(np.nan, np.nan)),
+        ('sfluxc_n', M(np.nan, np.nan)), ('posfluxc_n', M(np.nan, np.nan)), ('negfluxc_n', M(np.nan, np.nan)),
+        ('nvp_px_n', np.nan), ('p_ratio_n', np.nan), ('visarea_n', M(np.nan, np.nan)),
         ('max_pxflux_n', np.nan), ('max_pxf_n', np.nan), ('max_pxfc_n', np.nan),
-        ('swt_n', np.nan), ('intf_s', np.nan), ('intfc_s', np.nan),
-        ('unsflux_s', np.nan), ('unsfluxc_s', np.nan), ('sflux_s', np.nan),
-        ('sfluxc_s', np.nan), ('posfluxc_s', np.nan), ('negfluxc_s', np.nan),
-        ('nvp_px_s', np.nan), ('visarea_s', np.nan), ('max_pxflux_s', np.nan), 
-        ('max_pxf_s', np.nan), ('max_pxfc_s', np.nan), ('swt_s', np.nan)])
+        ('swt_n', np.nan), ('meanf_s', M(np.nan, np.nan)), ('meanfc_s', M(np.nan, np.nan)),
+        ('sumf_s', M(np.nan, np.nan)), ('sumfc_s', M(np.nan, np.nan)), ('unsflux_s', M(np.nan, np.nan)), 
+        ('unsfluxc_s', M(np.nan, np.nan)), ('sflux_s', M(np.nan, np.nan)), ('sfluxc_s', M(np.nan, np.nan)), 
+        ('posfluxc_s', M(np.nan, np.nan)), ('negfluxc_s', M(np.nan, np.nan)), ('nvp_px_s', np.nan), 
+        ('p_ratio_s', np.nan), ('visarea_s', M(np.nan, np.nan)), ('max_pxflux_s', np.nan),
+        ('max_pxf_s', np.nan),('max_pxfc_s', np.nan), ('swt_s', np.nan)])
 
 def usage():
     print('Usage: zaw_pf_script.py [-d data-root] [-s start-date] [-e end-date] [-i instrument]')
@@ -81,15 +84,14 @@ def init(seg):
     seg.meta['md_i'] = zaw_util.date2md(seg.meta['start_date'], seg.meta['instrument'])
     seg.meta['md_f'] = zaw_util.date2md(seg.meta['end_date'], seg.meta['instrument'])
 
-def calc_pol(pf_data, mgnt, pole, seg):
+def calc_pol(pf_data, mgnt, pole, meta):
     pole = pole.lower()
 
-    p_px, vp_px, posp_px, negp_px = indices(mgnt, pole, seg.meta['deg_lim'])
+    p_px, vp_px, posp_px, negp_px = indices(mgnt, pole, meta['deg_lim'])
     
-    #swt = validate(p_px, vp_px, posp_px, negp_px, pole, seg.meta['inv_px_tol'])
-    swt = 0
+    swt = validate(p_px, vp_px, posp_px, negp_px, pole, meta['inv_px_tol'])
     # Return with no data if the two previous cases are true.
-    if swt != 0:
+    if swt == 3:
         pf_data['md'] = mgnt.md
         pf_data['date'] = mgnt.date
         if pole == 'north':
@@ -100,8 +102,10 @@ def calc_pol(pf_data, mgnt, pole, seg):
         return pf_data
     # Otherwise calculate data from the poles.
     else:
-        intf = M.nanmean(mgnt.im_raw.data[vp_px])
-        intfc = M.nanmean(mgnt.im_corr.v[vp_px])
+        meanf = M.nanmean(mgnt.im_raw_u[vp_px])
+        meanfc = M.nanmean(mgnt.im_corr[vp_px])
+        sumf = M.nansum(mgnt.im_raw_u[vp_px])
+        sumfc = M.nansum(mgnt.im_corr[vp_px])
         unsflux = M.nansum(abs(mgnt.mflux_raw[vp_px]))
         unsfluxc = M.nansum(abs(mgnt.mflux_corr[vp_px]))
         sflux = M.nansum(mgnt.mflux_raw[vp_px])
@@ -109,25 +113,25 @@ def calc_pol(pf_data, mgnt, pole, seg):
         posfluxc = M.nansum(mgnt.mflux_corr[posp_px])
         negfluxc = M.nansum(mgnt.mflux_corr[negp_px])
         visarea = M.nansum(mgnt.area[vp_px])
-        max_pxflux = M.nanmax(abs( mgnt.mflux_corr[vp_px]))
+        max_pxflux = M.nanmax(abs(mgnt.mflux_corr[vp_px]))
         max_pxf = M.nanmax(mgnt.im_raw.data[vp_px])
         max_pxfc =  M.nanmax(mgnt.im_corr[vp_px])
 
         # Corrected field might be zero. Replace entries with NaNs.
         if unsfluxc == 0.0:
-            unsfluxc = np.nan
-            sfluxc = np.nan
-            posfluxc = np.nan
-            negfluxc = np.nan
+            unsfluxc = M(np.nan, np.nan)
+            sfluxc = M(np.nan, np.nan)
+            posfluxc = M(np.nan, np.nan)
+            negfluxc = M(np.nan, np.nan)
             max_pxflux = np.nan
             swt = 4
 
-        var = {'intf': intf, 'intfc': intfc, 'unsflux': unsflux,
-                        'unsfluxc': unsfluxc, 'sflux': sflux,
-                        'sfluxc': sfluxc, 'posfluxc': posfluxc,
-                        'negfluxc': negfluxc, 'nvp_px': np.size(vp_px),
-                        'visarea': visarea, 'max_pxflux': max_pxflux,
-                        'max_pxf': max_pxf, 'max_pxfc': max_pxfc, 'swt': swt}
+        var = {'meanf': meanf, 'meanfc': meanfc, 'sumf': sumf, 'sumfc': sumfc,
+                'unsflux': unsflux, 'unsfluxc': unsfluxc, 'sflux': sflux,
+                'sfluxc': sfluxc, 'posfluxc': posfluxc, 'negfluxc': negfluxc,
+                'nvp_px': np.size(vp_px), 'p_ratio': np.size(vp_px)/np.size(p_px),
+                'visarea': visarea, 'max_pxflux': max_pxflux, 'max_pxf': max_pxf,
+                'max_pxfc': max_pxfc, 'swt': swt}
         # Assign data values per north/south pole.
         for x in var.items():
             if pole == 'north':
@@ -141,7 +145,7 @@ def calc_pol(pf_data, mgnt, pole, seg):
 def indices(m, pole, dlim):
     print ("Determining polar cap pixels.")
     if pole == 'north':
-        p = np.where((m.rg < m.rsun) & (m.lath > dlim))
+        p = np.where((m.lath > dlim) & (m.rg < m.rsun*np.sin(75.0*np.pi/180)))
 
         vp = np.where((m.rg < m.rsun) & (m.lath > dlim) 
                 & M.isfinite(m.im_corr))
@@ -152,7 +156,7 @@ def indices(m, pole, dlim):
         negp = np.where((m.rg < m.rsun) & (m.lath > dlim)
                 & (m.im_corr < 0.0))
     else:
-        p = np.where((m.rg < m.rsun) & (m.lath < -dlim))
+        p = np.where((m.lath < -dlim) & (m.rg < m.rsun*np.sin(75.0*np.pi/180)))
 
         vp = np.where((m.rg < m.rsun) & (m.lath < -dlim) 
                 & M.isfinite(m.im_corr))
@@ -171,31 +175,52 @@ def validate(p, vp, pos, neg, pole, tol):
     if (np.size(pos) == 0 or np.size(neg) == 0):
         print ("{} hemisphere has no polarity mixture.".format(pole))
         return 3
-
-    # Disregard magnetograms under the tolerance level for valid pixels.
-    if (float(np.size(vp))/float(np.size(p)) < tol):
-        print(float(np.size(vp)/float(np.size(p))))
-        print ("{} hemisphere has more than {} %% invalid pixels.". 
-                format(pole, 1.0 - (tol)*100))
-        return 2
-
     return 0
 
 def process(seg, date):
     while date <= seg.meta['end_date']:
         print(date)
-        mgnt = zaw_util.CRD_read(date_c, seg.meta['instrument'])
+        mgnt = zaw_util.CRD_read(date, seg.meta['instrument'])
         if mgnt != -1:
             print("Calculating polar parameters")
             data = data0.copy()
             calc_pol(data, mgnt, 'north', seg.meta)
             calc_pol(data, mgnt, 'south', seg.meta)
             seg.pf.append(data)
+            split_and_export(seg)
+            export_to_hdf(seg)
         date = date + dt.timedelta(1)
+        
 
-def export(pf):
-    out_fn = 'PF_{}_{}.csv'.format(pf.start_date.isoformat(), pf.end_date.isoformat())
-    obj.to_csv(out_fn)
+def export_to_csv(seg):
+    obj = pd.DataFrame(seg.pf, columns=seg.pf[0].keys())
+    out_fn = 'PF_{}_{}.csv'.format(seg.meta['start_date'].isoformat(),
+                                    seg.meta['end_date'].isoformat())
+
+    obj.to_csv(out_fn, na_rep='NaN', date_format='%Y,%m,%d,%H,%M,%S')
+
+def export_to_hdf(seg):
+    obj = pd.DataFrame(seg.pf, columns=seg.pf[0].keys())
+    out_fn = 'PF_{}_{}.h5'.format(seg.meta['start_date'].isoformat(),
+                                    seg.meta['end_date'].isoformat())
+
+    obj.to_hdf(out_fn, 'fixed')
+
+def split_and_export(seg):
+    df = pd.DataFrame(seg.pf, columns=seg.pf[0].keys())
+    new_df = pd.DataFrame()
+    new_df['date'] = df['date']
+    for array in df.select_dtypes(include=['int64']):
+        new_df[array] = df[array]
+    for array in df.select_dtypes(include=['object']):
+        if array != 'date':
+            new_df[array + '_v'] = pd.Series([x.v for x in df[array].values])
+            new_df[array + '_u'] = pd.Series([x.u for x in df[array].values])
+
+    out_fn = 'PF_{}_{}.csv'.format(seg.meta['start_date'].isoformat(),
+                                    seg.meta['end_date'].isoformat())
+
+    new_df.to_csv(out_fn, na_rep='NaN', date_format='%Y,%m,%d,%H,%M,%S')
 
 def main():
     global d1, d2, instr
@@ -213,10 +238,9 @@ def main():
     # Proceed with function calls to read and calculate data.
     date_c = segment.meta['start_date']
 
-    process(segment, date_c)
+    process(segment, date_c) 
 
-    obj = pd.DataFrame(segment.pf, columns=segment.pf[0].keys())
-    export(segment)
+    export_to_hdf(segment)    
 
 if __name__ == "__main__":
     main()

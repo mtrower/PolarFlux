@@ -20,8 +20,8 @@ class CRD:
 
     """
 
-    RSUN_METERS = sun.constants.radius.si.value
-    DSUN_METERS = sun.constants.au.si.value
+    RSUN_METERS = M(sun.constants.radius.si.value, 26000)
+    DSUN_METERS = M(sun.constants.au.si.value, 0)
 
     
     def __init__(self, filename):
@@ -34,11 +34,11 @@ class CRD:
             # Define center of sun and location of detector.
             self.X0 = self.im_raw.meta['CRPIX1A']
             self.Y0 = self.im_raw.meta['CRPIX2A']
-            self.B0 = self.im_raw.meta['B0']
-            self.L0 = self.im_raw.meta['L0']
-            self.xScale = self.im_raw.scale[0].value
-            self.yScale = self.im_raw.scale[1].value
-            self.rsun = self.im_raw.rsun_obs.value
+            self.B0 = M(self.im_raw.meta['B0'], np.abs(self.im_raw.meta['B0'])*.01)
+            self.L0 = M(self.im_raw.meta['L0'], np.abs(self.im_raw.meta['L0'])*.01)
+            self.xScale = M(self.im_raw.scale[0].value, 0.002)
+            self.yScale = M(self.im_raw.scale[1].value, 0.002)
+            self.rsun = M(self.im_raw.rsun_obs.value, 1)
             self.dsun = self.DSUN_METERS
 
         elif self.im_raw.detector == 'SPMG':
@@ -46,11 +46,11 @@ class CRD:
             # Define center of sun and location of detector.
             self.X0 = self.im_raw.meta['CRPIX1A']
             self.Y0 = self.im_raw.meta['CRPIX2A']
-            self.B0 = self.im_raw.meta['B0']
-            self.L0 = self.im_raw.meta['L0']
-            self.xScale = self.im_raw.scale[0].value
-            self.yScale = self.im_raw.scale[1].value
-            self.rsun = self.im_raw.rsun_obs.value / self.im_raw.meta['SCALE']
+            self.B0 = M(self.im_raw.meta['B0'], np.abs(self.im_raw.meta['B0'])*.01)
+            self.L0 = M(self.im_raw.meta['L0'], np.abs(self.im_raw.meta['L0'])*.01)
+            self.xScale = M(self.im_raw.scale[0].value, 0)
+            self.yScale = M(self.im_raw.scale[1].value, 0)
+            self.rsun = M(self.im_raw.rsun_obs.value / self.im_raw.meta['SCALE'], 1)
             self.dsun = self.DSUN_METERS
 
         elif self.im_raw.detector == 'MDI':
@@ -58,24 +58,42 @@ class CRD:
             # Define center of sun and location of detector.
             self.X0 = self.im_raw.meta['X0']
             self.Y0 = self.im_raw.meta['Y0']
-            self.B0 = M(self.im_raw.meta['B0'], 0)
-            self.L0 = M(self.im_raw.meta['L0'], 0)
+            try:
+                self.B0 = M(self.im_raw.meta['B0'], np.abs(self.im_raw.meta['B0'])*.01)
+                self.L0 = M(self.im_raw.meta['L0'], np.abs(self.im_raw.meta['L0'])*.01)
+            except KeyError:
+                self.B0 = M(self.im_raw.meta['OBS_B0'], np.abs(self.im_raw.meta['OBS_B0'])*.01)
+                self.L0 = M(self.im_raw.meta['OBS_L0'], np.abs(self.im_raw.meta['OBS_L0'])*.01)
             self.xScale = M(1.982, 0.003)
             self.yScale = M(1.982, 0.003)
-            self.rsun = M(self.im_raw.rsun_obs.value, 26000)
-            self.dsun = self.im_raw.dsun.value
-            if self.im_raw.meta['p_angle'] == 180.0:
-                self.im_raw.rotate(180)
+            self.rsun = M(self.im_raw.rsun_obs.value, 1)
+            self.dsun = M(self.im_raw.dsun.value, 0)
+            dimensions = u.Quantity([1024, 1024], u.pix)
+            try: 
+                if self.im_raw.meta['p_angle'] != 0:
+                    self.im_raw = self.im_raw.rotate(angle=self.im_raw.meta['p_angle']*u.deg)
+                    self.im_raw = self.im_raw.resample(dimensions)
+            except KeyError:
+                if self.im_raw.meta['solar_p'] != 0:
+                    self.im_raw = self.im_raw.rotate(angle=self.im_raw.meta['solar_p']*u.deg)
+                    self.im_raw = self.im_raw.resample(dimensions)
 
         elif self.im_raw.detector == 'HMI':
             self.X0 = self.im_raw.meta['CRPIX1']
             self.Y0 = self.im_raw.meta['CRPIX2']
-            self.B0 = self.im_raw.meta['CRLT_OBS']
-            self.L0 = self.im_raw.meta['CRLN_OBS']
-            self.xScale = self.im_raw.scale[0].value
-            self.yScale = self.im_raw.scale[1].value
-            self.rsun = self.im_raw.rsun_obs.value
-            self.dsun = self.im_raw.dsun.value
+            self.B0 = M(self.im_raw.meta['CRLT_OBS'], np.abs(self.im_raw.meta['CRLT_OBS'])*.01)
+            self.L0 = M(self.im_raw.meta['CRLN_OBS'], np.abs(self.im_raw.meta['CRLN_OBS'])*.01)
+            self.xScale = M(self.im_raw.scale[0].value, 0.001)
+            self.yScale = M(self.im_raw.scale[1].value, 0.001)
+            self.rsun = M(self.im_raw.rsun_obs.value, 1)
+            self.dsun = M(self.im_raw.dsun.value, 0)
+            #TODO: p_angle stuff for HMI as well
+            if self.im_raw.meta['CROTA2'] != 0:
+                self.im_raw.rotate(self.im_raw.meta['CROTA2'])
+
+        else:
+            print ("Not a valid instrument or missing header information regarding instrument.")
+            raise IOError
             
     def __repr__(self):
         for key in ['X0', 'Y0', 'B0', 'L0', 'xScale', 'yScale', 'rsun', 'dsun']:

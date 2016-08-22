@@ -4,14 +4,14 @@ import datetime as dt
 from astropy.io import fits
 from zaw_coord import CRD
 
-data_root = '.'
+data_root = 'H:'
 debug = False
 
 def dateOffset(instr):
     if instr == 'spmg':
         year = 1990
     elif instr == 'mdi':
-        year = 1996
+        year = 1993
     elif instr == 'hmi':
         year = 2009
     else:
@@ -30,16 +30,19 @@ def md2date(md, instr):
 def CRD_read(date, instr):
     try:
         filename = search_file(date, instr)
-    except IndexError:
+    except IOError:
         return -1
 
-    mgnt = CRD(filename)
-    if mgnt == -1:
+    print(filename)
+    
+    try:
+        mgnt = CRD(filename)
+    except:
         return -1
-    mgnt.heliographic()
+    mgnt.heliographic()    
     mgnt.magnetic_flux()
     mgnt.magnetic_flux(raw_field=True)
-    mgnt.date = date
+    mgnt.date = mgnt.im_raw.date
     mgnt.md = date2md(date, instr)
 
     return mgnt
@@ -54,7 +57,7 @@ def search_file(date, instr):
     if instr == '512':
         fn0 = 'KPVT'
         subdir = '%d%02d' % (date.year - 1900, date.month)
-        filename = date.strftime('%Y%m%d') + '*.fits'
+        filename = '*' + date.strftime('%Y%m%d') + '*.fits'
 
     elif instr == 'spmg':
         subdir = '%d%02d' % (date.year - 1900, date.month)
@@ -65,7 +68,7 @@ def search_file(date, instr):
                 str(date.year)
                 , 'fd_M_96m_01d.%06d' % md
         )
-        filename ='fd_M_96m_01d.%d*.fits' % md
+        filename ='fd_M_96m_01d.%d.0*.fits' % md
         
     elif instr == 'hmi':
         pass
@@ -93,7 +96,10 @@ def mdi_file_choose(f):
     mv = 100000
     for x in f:     # but try to find a better match
         pdebug("mdi_file_choose - option: " + x)
-        m = fits.open(x)
+        m = fits.open(x, mode='update')
+        if 'INSTRUME' not in m[0].header.keys():
+            m[0].header.set('instrume', 'MDI')
+            m.flush()
         try:
             intv = m[0].header['INTERVAL']
             if intv == '':
@@ -107,8 +113,11 @@ def mdi_file_choose(f):
                     mv = m[0].header['MISSVALS']
         except KeyError:
             continue
+        finally:
+            m.close()
 
     pdebug("mdi_file_choose - selected: " + best)
+    print(best)
     return best
 
 def pdebug(str):
