@@ -27,7 +27,6 @@ class CRD:
     def __init__(self, filename):
         """Reads magnetogram as a sunpy.map object."""
         self.im_raw = sunpy.map.Map(filename)
-        self.im_raw_u = M(self.im_raw.data, np.abs(self.im_raw.data)*.10)
 
         if self.im_raw.detector == '512':
 
@@ -50,7 +49,7 @@ class CRD:
             self.L0 = M(self.im_raw.meta['L0'], np.abs(self.im_raw.meta['L0'])*.01)
             self.xScale = M(self.im_raw.scale[0].value, 0)
             self.yScale = M(self.im_raw.scale[1].value, 0)
-            self.rsun = M(self.im_raw.rsun_obs.value / self.im_raw.meta['SCALE'], 1)
+            self.rsun = M(self.im_raw.rsun_obs.value, 1)
             self.dsun = self.DSUN_METERS
 
         elif self.im_raw.detector == 'MDI':
@@ -68,15 +67,13 @@ class CRD:
             self.yScale = M(1.982, 0.003)
             self.rsun = M(self.im_raw.rsun_obs.value, 1)
             self.dsun = M(self.im_raw.dsun.value, 0)
-            dimensions = u.Quantity([1024, 1024], u.pix)
-            try: 
-                if self.im_raw.meta['p_angle'] != 0:
-                    self.im_raw = self.im_raw.rotate(angle=self.im_raw.meta['p_angle']*u.deg)
-                    self.im_raw = self.im_raw.resample(dimensions)
+            try:
+                self.P0 = self.im_raw.meta['p_angle']
             except KeyError:
-                if self.im_raw.meta['solar_p'] != 0:
-                    self.im_raw = self.im_raw.rotate(angle=self.im_raw.meta['solar_p']*u.deg)
-                    self.im_raw = self.im_raw.resample(dimensions)
+                self.P0 = self.im_raw.meta['solar_p']
+
+            if self.P0 != 0:
+                self.im_raw = self.im_raw.rotate(angle=self.P0*u.deg)
 
         elif self.im_raw.detector == 'HMI':
             self.X0 = self.im_raw.meta['CRPIX1']
@@ -94,6 +91,8 @@ class CRD:
         else:
             print ("Not a valid instrument or missing header information regarding instrument.")
             raise IOError
+
+        self.im_raw_u = M(self.im_raw.data, np.abs(self.im_raw.data)*.10)
             
     def __repr__(self):
         for key in ['X0', 'Y0', 'B0', 'L0', 'xScale', 'yScale', 'rsun', 'dsun']:
