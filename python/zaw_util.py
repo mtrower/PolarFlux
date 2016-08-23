@@ -117,7 +117,6 @@ def mdi_file_choose(f):
             m.close()
 
     pdebug("mdi_file_choose - selected: " + best)
-    print(best)
     return best
 
 def pdebug(str):

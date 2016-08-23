@@ -5,6 +5,7 @@ import numpy as np
 from uncertainty import Measurement as M
 import timeit
 import datetime as dt
+from astropy.io import fits
 start = timeit.default_timer()
 
 mdi = CRD('MDI\\fd_M_96m_01d.1222.0005.fits')
@@ -49,24 +50,48 @@ mdi = CRD('MDI\\fd_M_96m_01d.1222.0005.fits')
 #print(np.nansum(hmi.area))
 
 #PF SCRIPT TESTING
-import zaw_pf_script as p
-import zaw_util
-mgnt = CRD('MDI\\fd_M_96m_01d.1222.0005.fits')
-mgnt.heliographic()
-mgnt.magnetic_flux()
-mgnt.magnetic_flux(raw_field=True)
-p.d1 = '1996-05-07'
-p.d2 = '1996-05-10'
-x = p.PFData()
-p.init(x)
-mgnt.date = x.meta['start_date']
-mgnt.md = zaw_util.date2md(mgnt.date, x.meta['instrument'])
-p_px, vp_px, posp_px, negp_px = p.indices(mgnt, 'north', x.meta['deg_lim'])
-data = p.data0.copy()
-p.calc_pol(data, mgnt, 'north', x)
-p.calc_pol(data, mgnt, 'south', x)
-for key, value in data.items():
-    print ("{}: {}".format(key, value))
+# import zaw_pf_script as p
+# import zaw_util
+# mgnt = CRD('MDI\\fd_M_96m_01d.1222.0005.fits')
+# mgnt.heliographic()
+# mgnt.magnetic_flux()
+# mgnt.magnetic_flux(raw_field=True)
+# p.d1 = '1996-05-07'
+# p.d2 = '1996-05-10'
+# x = p.PFData()
+# p.init(x)
+# mgnt.date = x.meta['start_date']
+# mgnt.md = zaw_util.date2md(mgnt.date, x.meta['instrument'])
+# p_px, vp_px, posp_px, negp_px = p.indices(mgnt, 'north', x.meta['deg_lim'])
+# data = p.data0.copy()
+# p.calc_pol(data, mgnt, 'north', x)
+# p.calc_pol(data, mgnt, 'south', x)
+# for key, value in data.items():
+#     print ("{}: {}".format(key, value))
+
+import zaw_util as z
+date = dt.datetime(1996,4,14)
+end_date = dt.datetime(2011,4,11)
+p_angle = []
+solar_p = []
+data = {'P_ANGLE': [], 'SOLAR_P': [], 'DATE': []}
+while date < end_date:
+    print(date)
+    try:
+        filename = z.search_file(date, 'mdi')
+    except IOError:
+        date = date + dt.timedelta(1)
+        continue
+    try:
+        data['P_ANGLE'].append(fits.getval(filename, 'P_ANGLE'))
+    except:
+        data['P_ANGLE'].append(np.nan)
+    try:
+        data['SOLAR_P'].append(fits.getval(filename, 'SOLAR_P'))
+    except:
+        data['SOLAR_P'].append(np.nan)
+    data['DATE'].append(date)
+    date = date + dt.timedelta(1)
 
 stop = timeit.default_timer()
 print ("Time = ", stop - start)
