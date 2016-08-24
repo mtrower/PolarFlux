@@ -84,7 +84,9 @@ def init(seg):
     seg.meta['md_i'] = zaw_util.date2md(seg.meta['start_date'], seg.meta['instrument'])
     seg.meta['md_f'] = zaw_util.date2md(seg.meta['end_date'], seg.meta['instrument'])
 
-def calc_pol(pf_data, mgnt, pole, meta):
+def calc_pol(mgnt, pole, pf_data=None, meta={'deg_lim': 75.0, 'inv_px_tol': .85}):
+    if pf_data is None:
+        pf_data = data0.copy()
     pole = pole.lower()
 
     p_px, vp_px, posp_px, negp_px = indices(mgnt, pole, meta['deg_lim'])
@@ -142,7 +144,7 @@ def calc_pol(pf_data, mgnt, pole, meta):
         pf_data['date'] = mgnt.date     
         return pf_data
 
-def indices(m, pole, dlim):
+def indices(m, pole, dlim=75.0):
     print ("Determining polar cap pixels.")
     if pole == 'north':
         p = np.where((m.lath > dlim) & (m.rg < m.rsun*np.sin(75.0*np.pi/180)))
@@ -169,7 +171,7 @@ def indices(m, pole, dlim):
 
     return p, vp, posp, negp
 
-def validate(p, vp, pos, neg, pole, tol):
+def validate(p, vp, pos, neg, pole, tol=0.85):
     print ("Validating polar cap.")
     # Search for polarity mixture.
     if (np.size(pos) == 0 or np.size(neg) == 0):
@@ -230,6 +232,7 @@ def main():
     if    d1 == None:    d1 = input('Enter starting date: ')
     if    d2 == None:    d2 = input('Enter end date: ')
     if instr == None: instr = input('Enter the instrument: ')
+    if zaw_util.data_root == '.': zaw_util.data_root = input('Enter data root:')
 
     # Initialize the segment data first.
     segment = PFData()

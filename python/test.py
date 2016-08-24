@@ -1,3 +1,4 @@
+"""Mainly just used for testing large blocks of code"""
 from zaw_coord import CRD
 import kpvt_class
 #import sunpy.wcs
