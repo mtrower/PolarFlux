@@ -179,6 +179,8 @@ def validate(p, vp, pos, neg, pole, tol=0.85):
         return 3
     return 0
 
+def calc_parameters(mgnt, vp, posp, negp)
+
 def process(seg, date):
     while date <= seg.meta['end_date']:
         print(date)
@@ -186,8 +188,8 @@ def process(seg, date):
         if mgnt != -1:
             print("Calculating polar parameters")
             data = data0.copy()
-            calc_pol(data, mgnt, 'north', seg.meta)
-            calc_pol(data, mgnt, 'south', seg.meta)
+            calc_pol(mgnt, 'north', pf_data=data, seg.meta)
+            calc_pol(mgnt, 'south', pf_data=data, seg.meta)
             seg.pf.append(data)
             split_and_export(seg)
             export_to_hdf(seg)
