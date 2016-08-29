@@ -158,6 +158,7 @@ def calc_parameters(mgnt, p, vp, posp, negp):
     posp:   positive flux pixels in the polar crown
     negp:   negative flux pixels in the polar crown
     """
+    swt = 0
     meanf = M.nanmean(mgnt.im_raw_u[vp])
     meanfc = M.nanmean(mgnt.im_corr[vp])
     sumf = M.nansum(mgnt.im_raw_u[vp])
@@ -185,7 +186,7 @@ def calc_parameters(mgnt, p, vp, posp, negp):
     var = {'meanf': meanf, 'meanfc': meanfc, 'sumf': sumf, 'sumfc': sumfc,
                 'unsflux': unsflux, 'unsfluxc': unsfluxc, 'sflux': sflux,
                 'sfluxc': sfluxc, 'posfluxc': posfluxc, 'negfluxc': negfluxc,
-                'nvp_px': np.size(vp_px), 'p_ratio': np.size(vp)/np.size(p),
+                'nvp_px': np.size(vp), 'p_ratio': np.size(vp)/np.size(p),
                 'visarea': visarea, 'max_pxflux': max_pxflux, 'max_pxf': max_pxf,
                 'max_pxfc': max_pxfc, 'swt': swt}
     return var
