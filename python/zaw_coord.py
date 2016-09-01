@@ -84,9 +84,9 @@ class CRD:
             self.yScale = M(self.im_raw.scale[1].value, 0.001)
             self.rsun = M(self.im_raw.rsun_obs.value, 1)
             self.dsun = M(self.im_raw.dsun.value, 0)
-            self.P0 = self.im_raw.meta['CROTA2'] != 0
+            self.P0 = self.im_raw.meta['CROTA2']
             if self.P0 != 0:
-                self.im_raw.rotate(angle=self.P0*u.deg)
+                self.im_raw = self.im_raw.rotate(angle=self.P0*u.deg)
 
         else:
             print ("Not a valid instrument or missing header information regarding instrument.")
