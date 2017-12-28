@@ -25,7 +25,7 @@ def date2md(date, instr):
 
 #Converts an instrument mission date string into a standard date string.
 def md2date(md, instr):
-    return dt.fromordinal(md + dateOffset(instr).toordinal())
+    return dt.datetime.fromordinal(md + dateOffset(instr).toordinal())
 
 def CRD_read(date, instr):
     try:
